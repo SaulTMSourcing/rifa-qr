@@ -1,18 +1,19 @@
 // ============================================================
 // backend/src/server.js
 // ------------------------------------------------------------
-// Servidor Express. En esta version inicial (Paso 2b) solo:
+// Servidor Express. Version del Paso 3d:
 //  - Carga variables de entorno
 //  - Configura middlewares basicos (CORS, JSON parser)
+//  - Monta el router de registro en /api
 //  - Expone GET /api/health para verificar conectividad
 //  - Verifica la conexion a MySQL antes de aceptar requests
-// La logica de /api/registrar se agrega en el Paso 3.
 // ============================================================
 
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import pool, { testConnection } from './config/db.js';
+import registroRoutes from './routes/registro.routes.js';
 
 dotenv.config();
 
@@ -30,7 +31,7 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: '10kb' })); // Limite chico: el form es pequeno
+app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
 // ------------------------------------------------------------
@@ -69,6 +70,9 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Router de registro: POST /api/registrar
+app.use('/api', registroRoutes);
+
 // 404 catch-all
 app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint no encontrado' });
@@ -95,6 +99,7 @@ async function start() {
   app.listen(PORT, () => {
     console.log(`[Server] Backend escuchando en http://localhost:${PORT}`);
     console.log(`[Server] Health check: http://localhost:${PORT}/api/health`);
+    console.log(`[Server] Registro:     POST http://localhost:${PORT}/api/registrar`);
     console.log(`[Server] Entorno: ${process.env.NODE_ENV || 'development'}`);
   });
 }
