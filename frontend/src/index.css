@@ -1,0 +1,33 @@
+/* ============================================================
+   frontend/src/index.css
+   ------------------------------------------------------------
+   Punto de entrada de estilos. Contiene:
+     1. Import de Inter desde Google Fonts
+     2. Directivas de Tailwind (base, components, utilities)
+     3. Defaults globales: tipografia, antialiasing, color base
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    /* Mejor renderizado de Inter en pantallas comunes */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply font-sans bg-click-gray-light text-ink min-h-screen;
+  }
+
+  /* Inputs por defecto: que respeten la tipografia y no usen
+     los estilos del navegador */
+  input, button, textarea, select {
+    @apply font-sans;
+  }
+}
