@@ -232,7 +232,7 @@ function FormularioRegistro({ onSubmit, defaultValues }) {
         <CampoInput
           label="Empresa"
           name="empresa"
-          placeholder="Ej. Trust Management Sourcing"
+          placeholder="Ej. Click Seguridad Juridica"
           autoComplete="organization"
           Icon={Building2}
           maxLength={150}
@@ -244,7 +244,7 @@ function FormularioRegistro({ onSubmit, defaultValues }) {
         <CampoInput
           label="Puesto"
           name="puesto"
-          placeholder="Ej. Director de Operaciones"
+          placeholder="Ej. Director Comercial"
           autoComplete="organization-title"
           Icon={Briefcase}
           maxLength={150}
