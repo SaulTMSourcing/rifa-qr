@@ -16,7 +16,7 @@
 // y autoritativa ocurre en el backend.
 // ============================================================
 
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import {
   User,
   Mail,
@@ -38,6 +38,22 @@ const REGEX_NOMBRE = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'-]+$/;
 // hace validator en el backend), pero atrapa errores comunes.
 const REGEX_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+// ----------------------------------------------------------
+// Formateador del telefono: inserta espacios mientras el
+// usuario tipea, sin alterar los digitos.
+//   "5"         -> "5"
+//   "551"       -> "55 1"
+//   "55123"     -> "55 123"
+//   "5512345"   -> "55 1234 5"
+//   "5512345678" -> "55 1234 5678"
+// ----------------------------------------------------------
+function formatearTelefono(valor) {
+  const digitos = valor.replace(/\D/g, '').slice(0, 10);
+  if (digitos.length <= 2) return digitos;
+  if (digitos.length <= 6) return `${digitos.slice(0, 2)} ${digitos.slice(2)}`;
+  return `${digitos.slice(0, 2)} ${digitos.slice(2, 6)} ${digitos.slice(6)}`;
+}
+
 // ============================================================
 // Componente
 // ============================================================
@@ -45,6 +61,7 @@ function FormularioRegistro({ onSubmit, defaultValues }) {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors, dirtyFields, isValid },
     watch,
   } = useForm({
@@ -190,34 +207,41 @@ function FormularioRegistro({ onSubmit, defaultValues }) {
           isValid={esValido('correo')}
         />
 
-        <CampoInput
-          label="Teléfono (10 dígitos)"
+        {/*
+          Controller en lugar de register() para poder interceptar
+          onChange y aplicar el formato antes de que react-hook-form
+          guarde el valor.
+        */}
+        <Controller
           name="telefono"
-          type="tel"
-          placeholder="55 1234 5678"
-          autoComplete="tel"
-          Icon={Phone}
-          maxLength={20}
-          register={register('telefono', {
+          control={control}
+          rules={{
             required: 'El teléfono es obligatorio.',
             validate: (valor) => {
-              // Quitar todo lo que no sea digito
-              let soloDigitos = valor.replace(/\D/g, '');
-              // Aceptar formato con lada Mexico (+52, 52, 1)
-              if (soloDigitos.length === 12 && soloDigitos.startsWith('52')) {
-                soloDigitos = soloDigitos.slice(2);
-              }
-              if (soloDigitos.length === 11 && soloDigitos.startsWith('1')) {
-                soloDigitos = soloDigitos.slice(1);
-              }
+              const soloDigitos = valor.replace(/\D/g, '');
               if (soloDigitos.length !== 10) {
                 return 'Debe tener 10 dígitos (formato México).';
               }
               return true;
             },
-          })}
-          error={errors.telefono}
-          isValid={esValido('telefono')}
+          }}
+          render={({ field }) => (
+            <CampoInput
+              label="Teléfono (10 dígitos)"
+              name="telefono"
+              type="tel"
+              placeholder="55 1234 5678"
+              autoComplete="tel"
+              Icon={Phone}
+              maxLength={13}
+              register={{
+                ...field,
+                onChange: (e) => field.onChange(formatearTelefono(e.target.value)),
+              }}
+              error={errors.telefono}
+              isValid={esValido('telefono')}
+            />
+          )}
         />
       </fieldset>
 
@@ -259,6 +283,7 @@ function FormularioRegistro({ onSubmit, defaultValues }) {
       {/* =========================================== */}
       <button
         type="submit"
+        disabled={!isValid}
         className="
           w-full
           flex items-center justify-center gap-2

@@ -11,7 +11,8 @@
 //   enviando        - boolean, true mientras se hace fetch
 // ============================================================
 
-import { Pencil, Loader2, Send } from 'lucide-react';
+import { Pencil, Send } from 'lucide-react';
+import OrganicLoader from './OrganicLoader';
 
 function ResumenDatos({ datos, onEditar, onConfirmar, enviando }) {
   const filas = [
@@ -23,6 +24,15 @@ function ResumenDatos({ datos, onEditar, onConfirmar, enviando }) {
     { label: 'Empresa', valor: datos.empresa },
     { label: 'Puesto', valor: datos.puesto },
   ];
+
+  // Mientras se envía al backend, mostrar solo el loader
+  if (enviando) {
+    return (
+      <div className="py-10 flex justify-center animate-fade-up">
+        <OrganicLoader numero={1} label="Registrando..." />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -58,12 +68,10 @@ function ResumenDatos({ datos, onEditar, onConfirmar, enviando }) {
         <button
           type="button"
           onClick={onConfirmar}
-          disabled={enviando}
           className="
             w-full
             flex items-center justify-center gap-2
             bg-click-orange hover:bg-click-orange-dark
-            disabled:bg-gray-300 disabled:cursor-not-allowed
             text-white font-bold text-lg
             rounded-lg
             py-4
@@ -71,28 +79,17 @@ function ResumenDatos({ datos, onEditar, onConfirmar, enviando }) {
             shadow-md
           "
         >
-          {enviando ? (
-            <>
-              <Loader2 size={22} strokeWidth={2.5} className="animate-spin" />
-              Registrando...
-            </>
-          ) : (
-            <>
-              <Send size={20} strokeWidth={2.5} />
-              Confirmar y registrarme
-            </>
-          )}
+          <Send size={20} strokeWidth={2.5} />
+          Confirmar y registrarme
         </button>
 
         <button
           type="button"
           onClick={onEditar}
-          disabled={enviando}
           className="
             w-full
             flex items-center justify-center gap-2
             bg-white hover:bg-click-gray-light
-            disabled:bg-gray-100 disabled:cursor-not-allowed
             text-click-gray font-semibold
             border-2 border-gray-200
             rounded-lg

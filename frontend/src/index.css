@@ -9,6 +9,24 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
+/* ─── Organic Loader 01 — dos blobs en órbita ─── */
+@keyframes organicOrbitA {
+  0%   { transform: translate(-34px, -34px) scale(1);    }
+  25%  { transform: translate( 34px, -34px) scale(1.05); }
+  50%  { transform: translate( 34px,  34px) scale(1);    }
+  75%  { transform: translate(-34px,  34px) scale(0.95); }
+  100% { transform: translate(-34px, -34px) scale(1);    }
+}
+@keyframes organicOrbitB {
+  0%   { transform: translate( 34px,  34px) scale(1);    }
+  25%  { transform: translate(-34px,  34px) scale(0.95); }
+  50%  { transform: translate(-34px, -34px) scale(1);    }
+  75%  { transform: translate( 34px, -34px) scale(1.05); }
+  100% { transform: translate( 34px,  34px) scale(1);    }
+}
+.organic-blob-a { animation: organicOrbitA 2.4s ease-in-out infinite; }
+.organic-blob-b { animation: organicOrbitB 2.4s ease-in-out infinite; }
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

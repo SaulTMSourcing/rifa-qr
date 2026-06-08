@@ -18,10 +18,12 @@
 import { useState, useEffect } from 'react';
 import {
   registrarParticipante,
+  healthCheck,
   NetworkError,
   ApiError,
 } from './services/api';
 import FormularioRegistro from './components/FormularioRegistro';
+import OrganicLoader from './components/OrganicLoader';
 import ResumenDatos from './components/ResumenDatos';
 import ResultadoGanador from './components/ResultadoGanador';
 import ResultadoParticipante from './components/ResultadoParticipante';
@@ -56,6 +58,9 @@ function App() {
  
   // Info del error, si hay
   const [errorInfo, setErrorInfo] = useState(null);
+
+  // true si el health check inicial detectó que el backend no responde
+  const [backendCaido, setBackendCaido] = useState(false);
  
   // ----------------------------------------------------------
   // Efecto inicial: revisar localStorage
@@ -64,26 +69,50 @@ function App() {
   // Si no, mostrar el formulario.
   // ----------------------------------------------------------
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw) {
-        const guardado = JSON.parse(raw);
-        // Validacion minima de integridad
-        if (
-          guardado &&
-          typeof guardado.numeroRegistro === 'number' &&
-          typeof guardado.nombreCompleto === 'string'
-        ) {
-          setResultado(guardado);
-          setVista('resultado');
-          return;
+    // ----------------------------------------------------------
+    // Health check en paralelo: no bloquea la UI, solo avisa
+    // si el backend no está disponible antes de que el usuario
+    // llene el formulario.
+    // ----------------------------------------------------------
+    healthCheck().then((ok) => {
+      if (!ok) setBackendCaido(true);
+    });
+
+    // ----------------------------------------------------------
+    // Mínimo 3 s en pantalla de carga para que el loader se vea.
+    // El check de localStorage es instantáneo, así que usamos
+    // Promise.all para esperar ambos: la lógica Y el delay.
+    // ----------------------------------------------------------
+    const delay = new Promise((resolve) => setTimeout(resolve, 3000));
+
+    const chequearRegistro = new Promise((resolve) => {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (raw) {
+          const guardado = JSON.parse(raw);
+          if (
+            guardado &&
+            typeof guardado.numeroRegistro === 'number' &&
+            typeof guardado.nombreCompleto === 'string'
+          ) {
+            resolve({ tipo: 'resultado', datos: guardado });
+            return;
+          }
         }
+      } catch {
+        localStorage.removeItem(LS_KEY);
       }
-    } catch {
-      // localStorage corrupto: lo limpiamos y seguimos
-      localStorage.removeItem(LS_KEY);
-    }
-    setVista('formulario');
+      resolve({ tipo: 'formulario' });
+    });
+
+    Promise.all([chequearRegistro, delay]).then(([{ tipo, datos }]) => {
+      if (tipo === 'resultado') {
+        setResultado(datos);
+        setVista('resultado');
+      } else {
+        setVista('formulario');
+      }
+    });
   }, []);
  
   // ----------------------------------------------------------
@@ -232,11 +261,22 @@ function App() {
       {/* Contenido principal                                  */}
       {/* =================================================== */}
       <main className="flex-1 py-8 px-4">
+        {/* Banner: backend no disponible */}
+        {backendCaido && (
+          <div className="max-w-md mx-auto mb-4 flex items-start gap-3 bg-red-50 border border-red-200 text-danger rounded-xl px-4 py-3 text-sm font-medium">
+            <span className="mt-0.5 shrink-0">⚠️</span>
+            <span>
+              El servidor no responde en este momento. Puedes llenar el formulario,
+              pero el registro podría fallar al confirmar.
+            </span>
+          </div>
+        )}
+
         <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-6 sm:p-8">
           {/* Estado: cargando */}
           {vista === 'cargando' && (
-            <div className="py-16 text-center text-click-gray">
-              <p className="text-sm">Cargando...</p>
+            <div className="py-10 flex justify-center">
+              <OrganicLoader numero={1} label="Cargando..." />
             </div>
           )}
  
