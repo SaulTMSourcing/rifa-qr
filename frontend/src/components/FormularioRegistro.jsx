@@ -136,7 +136,7 @@ function FormularioRegistro({ onSubmit, defaultValues }) {
       {/* =========================================== */}
       <fieldset className="space-y-4">
         <legend className="text-xs font-bold uppercase tracking-wider text-click-orange mb-2">
-          Datos personales
+          01  •  Datos personales
         </legend>
 
         <CampoInput
@@ -181,7 +181,7 @@ function FormularioRegistro({ onSubmit, defaultValues }) {
       {/* =========================================== */}
       <fieldset className="space-y-4">
         <legend className="text-xs font-bold uppercase tracking-wider text-click-orange mb-2">
-          Contacto
+          02  •  Contacto
         </legend>
 
         <CampoInput
@@ -250,7 +250,7 @@ function FormularioRegistro({ onSubmit, defaultValues }) {
       {/* =========================================== */}
       <fieldset className="space-y-4">
         <legend className="text-xs font-bold uppercase tracking-wider text-click-orange mb-2">
-          Información laboral
+          03  •  Información laboral
         </legend>
 
         <CampoInput
@@ -292,7 +292,7 @@ function FormularioRegistro({ onSubmit, defaultValues }) {
           text-white font-bold text-lg
           rounded-lg
           py-4
-          transition-colors
+          transition-all active:scale-95
           shadow-md
         "
       >

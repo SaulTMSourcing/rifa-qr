@@ -80,7 +80,7 @@ function ResultadoParticipante({ numeroRegistro, nombreCompleto, onNoSoyYo }) {
           hover:text-click-orange
           underline
           py-2
-          transition-colors
+          transition-all active:scale-95
         "
       >
         ¿No eres tú? Borrar datos y registrar a otra persona

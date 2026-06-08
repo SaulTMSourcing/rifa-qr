@@ -40,7 +40,9 @@
   }
 
   body {
-    @apply font-sans bg-click-gray-light text-ink min-h-screen;
+    @apply font-sans text-ink min-h-screen;
+    background: linear-gradient(160deg, #fff4eb 0%, #f3f4f6 45%, #f3f4f6 100%);
+    background-attachment: fixed;
   }
 
   /* Inputs por defecto: que respeten la tipografia y no usen

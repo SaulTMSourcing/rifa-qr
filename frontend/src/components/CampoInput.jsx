@@ -51,8 +51,9 @@ function CampoInput({
     px-4 py-3
     text-ink
     placeholder:text-gray-400
-    transition-colors
+    transition-all
     focus:outline-none
+    focus:shadow-[0_0_0_3px_rgba(255,107,0,0.15)]
   `;
 
   let estadoClasses;

@@ -272,61 +272,70 @@ function App() {
           </div>
         )}
 
-        <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-6 sm:p-8">
-          {/* Estado: cargando */}
-          {vista === 'cargando' && (
-            <div className="py-10 flex justify-center">
-              <OrganicLoader numero={1} label="Cargando..." />
-            </div>
-          )}
- 
-          {/* Estado: formulario */}
-          {vista === 'formulario' && (
-            <FormularioRegistro
-              onSubmit={handleFormularioSubmit}
-              defaultValues={datosFormulario}
-            />
-          )}
- 
-          {/* Estado: resumen */}
-          {vista === 'resumen' && datosFormulario && (
-            <ResumenDatos
-              datos={datosFormulario}
-              onEditar={handleEditar}
-              onConfirmar={handleConfirmar}
-              enviando={enviando}
-            />
-          )}
- 
-          {/* Estado: resultado (ganador o participante) */}
-          {vista === 'resultado' && resultado && (
-            <>
-              {resultado.esGanador ? (
-                <ResultadoGanador
-                  numeroRegistro={resultado.numeroRegistro}
-                  nombreCompleto={resultado.nombreCompleto}
-                  premio={resultado.premio}
-                  onNoSoyYo={handleNoSoyYo}
-                />
-              ) : (
-                <ResultadoParticipante
-                  numeroRegistro={resultado.numeroRegistro}
-                  nombreCompleto={resultado.nombreCompleto}
-                  onNoSoyYo={handleNoSoyYo}
-                />
-              )}
-            </>
-          )}
- 
-          {/* Estado: error */}
-          {vista === 'error' && errorInfo && (
-            <ResultadoError
-              tipo={errorInfo.tipo}
-              mensaje={errorInfo.mensaje}
-              onReintentar={handleConfirmar}
-              onEditar={handleEditar}
-            />
-          )}
+        <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl border-t-[3px] border-click-orange p-6 sm:p-8">
+          {/*
+            key={vista}: cada vez que cambia la vista React desmonta
+            y remonta este div, re-disparando animate-fade-up.
+            Sin key, la animación solo ocurre en el montaje inicial.
+          */}
+          <div key={vista} className="animate-fade-up">
+
+            {/* Estado: cargando */}
+            {vista === 'cargando' && (
+              <div className="py-10 flex justify-center">
+                <OrganicLoader numero={1} label="Cargando..." />
+              </div>
+            )}
+
+            {/* Estado: formulario */}
+            {vista === 'formulario' && (
+              <FormularioRegistro
+                onSubmit={handleFormularioSubmit}
+                defaultValues={datosFormulario}
+              />
+            )}
+
+            {/* Estado: resumen */}
+            {vista === 'resumen' && datosFormulario && (
+              <ResumenDatos
+                datos={datosFormulario}
+                onEditar={handleEditar}
+                onConfirmar={handleConfirmar}
+                enviando={enviando}
+              />
+            )}
+
+            {/* Estado: resultado (ganador o participante) */}
+            {vista === 'resultado' && resultado && (
+              <>
+                {resultado.esGanador ? (
+                  <ResultadoGanador
+                    numeroRegistro={resultado.numeroRegistro}
+                    nombreCompleto={resultado.nombreCompleto}
+                    premio={resultado.premio}
+                    onNoSoyYo={handleNoSoyYo}
+                  />
+                ) : (
+                  <ResultadoParticipante
+                    numeroRegistro={resultado.numeroRegistro}
+                    nombreCompleto={resultado.nombreCompleto}
+                    onNoSoyYo={handleNoSoyYo}
+                  />
+                )}
+              </>
+            )}
+
+            {/* Estado: error */}
+            {vista === 'error' && errorInfo && (
+              <ResultadoError
+                tipo={errorInfo.tipo}
+                mensaje={errorInfo.mensaje}
+                onReintentar={handleConfirmar}
+                onEditar={handleEditar}
+              />
+            )}
+
+          </div>
         </div>
       </main>
  

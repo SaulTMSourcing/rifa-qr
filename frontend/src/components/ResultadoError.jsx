@@ -88,7 +88,7 @@ function ResultadoError({ tipo, mensaje, onReintentar, onEditar }) {
               text-white font-bold text-lg
               rounded-lg
               py-4
-              transition-colors
+              transition-all active:scale-95
               shadow-md
             "
           >
@@ -111,7 +111,7 @@ function ResultadoError({ tipo, mensaje, onReintentar, onEditar }) {
               font-semibold
               rounded-lg
               py-3
-              transition-colors
+              transition-all active:scale-95
             `}
           >
             <Pencil size={16} strokeWidth={2.5} />
