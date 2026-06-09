@@ -13,13 +13,6 @@
 
 import { Pencil, Send } from 'lucide-react';
 import OrganicLoader from './OrganicLoader';
-import {
-  User,
-  Mail,
-  Phone,
-  Building2,
-  Briefcase
-}from 'lucide-react';
 
 function ResumenDatos({ datos, onEditar, onConfirmar, enviando }) {
   const filas = [
@@ -101,7 +94,7 @@ function ResumenDatos({ datos, onEditar, onConfirmar, enviando }) {
             border-2 border-gray-200
             rounded-lg
             py-3
-            transition-all active:scale-95
+            transition-colors
           "
         >
           <Pencil size={16} strokeWidth={2.5} />
