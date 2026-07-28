@@ -77,7 +77,7 @@ export async function registrarParticipante(datos) {
       },
       body: JSON.stringify(datos),
     });
-  } catch (error) {
+  } catch {
     // fetch() solo lanza en errores de red puros (TypeError).
     // No lanza en 400/500: para esos, response.ok es false pero
     // la promesa resuelve normalmente.
