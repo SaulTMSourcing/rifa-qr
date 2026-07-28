@@ -14,6 +14,11 @@ frontend/node_modules/
 backend/.env
 frontend/.env
 
+# Conexion al MySQL local de pruebas: lleva la contrasena de root,
+# nunca debe subirse.
+.env.sandbox
+backend/.env.sandbox
+
 # Sí permitimos los .env.example (plantilla sin secretos)
 !.env.example
 !backend/.env.example
