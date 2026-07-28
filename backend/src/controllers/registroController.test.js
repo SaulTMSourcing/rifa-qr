@@ -88,6 +88,7 @@ function bodyValido(extras = {}) {
     puesto: 'desarrollador senior',
     telefono: '+52 (55) 1234-5678',
     correo: '  Irving.Vega@Example.COM ',
+    acepto_privacidad: true,
     ...extras,
   };
 }
@@ -196,17 +197,35 @@ describe('registrarParticipante - registro exitoso NO ganador', () => {
 
     const params = llamadaInsert[1];
     // Orden de columnas: nombre, apellido_pat, apellido_mat,
-    // empresa, puesto, telefono, correo, ip_origen
+    // empresa, puesto, telefono, correo, ip_origen, acepto_privacidad
     expect(params).toEqual([
       'Irving Alejandro',      // trim + colapso de espacios + title case
       'De la Vega',            // particulas en minuscula salvo la primera
       'García',                // respeta acentos
-      'Tmsourcing',
+      'Tmsourcing',            // todo en minusculas: no hay caja que respetar
       'Desarrollador Senior',
       '5512345678',            // solo digitos, sin lada 52
       'irving.vega@example.com', // minusculas y sin espacios
       '187.190.1.1',           // ip del request para auditoria
+      true,                    // constancia del aviso de privacidad
     ]);
+  });
+
+  it('respeta la caja de marcas y siglas en empresa', async () => {
+    programarExecute(conexion);
+    const res = crearResFalso();
+
+    await registrarParticipante(
+      crearReqFalso(bodyValido({ empresa: 'TMSourcing', puesto: 'Director CLICK' })),
+      res
+    );
+
+    const [llamadaInsert] = llamadasConSql(conexion, 'INSERT INTO participantes');
+    const params = llamadaInsert[1];
+    // Sin esto, la lista de contactos del evento llegaba degradada:
+    // "TMSourcing" se guardaba como "Tmsourcing".
+    expect(params[3]).toBe('TMSourcing');
+    expect(params[4]).toBe('Director CLICK');
   });
 
   it('guarda ip_origen como null si el request no trae ip', async () => {
@@ -305,6 +324,33 @@ describe('registrarParticipante - validacion de entrada', () => {
     await registrarParticipante(req, res);
 
     expect(pool.getConnection).not.toHaveBeenCalled();
+  });
+
+  it('responde 400 si no se acepto el aviso de privacidad', async () => {
+    const res = crearResFalso();
+    const req = crearReqFalso(bodyValido({ acepto_privacidad: false }));
+
+    await registrarParticipante(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: false,
+        error: 'datos_invalidos',
+        campo: 'acepto_privacidad',
+      })
+    );
+  });
+
+  it('no registra a nadie que no haya dado su consentimiento', async () => {
+    const res = crearResFalso();
+    // Un POST directo al endpoint, saltandose el formulario
+    const req = crearReqFalso(bodyValido({ acepto_privacidad: undefined }));
+
+    await registrarParticipante(req, res);
+
+    expect(pool.getConnection).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
   });
 
   it('responde 400 con campo telefono si el telefono no tiene 10 digitos', async () => {

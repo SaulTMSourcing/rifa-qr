@@ -118,6 +118,47 @@ describe('titleCaseEspanol', () => {
   it('normaliza espacios extra antes de capitalizar', () => {
     expect(titleCaseEspanol('  pedro   paramo  ')).toBe('Pedro Paramo');
   });
+
+  // ----------------------------------------------------------
+  // Capitalizacion deliberada: siglas y marcas
+  // ----------------------------------------------------------
+  // Estos casos son datos comerciales del evento (empresa y puesto).
+  // Degradarlos ensucia la lista de contactos que queda al cierre.
+  // ----------------------------------------------------------
+  describe('capitalizacion deliberada', () => {
+    it('respeta caja camello en nombres de marca', () => {
+      expect(titleCaseEspanol('TMSourcing')).toBe('TMSourcing');
+      expect(titleCaseEspanol('TMSourcing Consultores')).toBe('TMSourcing Consultores');
+    });
+
+    it('respeta siglas en caja alta cuando conviven con minusculas', () => {
+      expect(titleCaseEspanol('CLICK Seguridad Juridica')).toBe('CLICK Seguridad Juridica');
+      expect(titleCaseEspanol('Banco BBVA')).toBe('Banco BBVA');
+      expect(titleCaseEspanol('Grupo HSBC Mexico')).toBe('Grupo HSBC Mexico');
+    });
+
+    it('respeta apellidos con mayuscula interna', () => {
+      expect(titleCaseEspanol('Juan McAllister')).toBe('Juan McAllister');
+    });
+
+    it('sigue capitalizando palabras normales alrededor de una sigla', () => {
+      expect(titleCaseEspanol('consultoria CLICK del bajio'))
+        .toBe('Consultoria CLICK del Bajio');
+    });
+
+    it('normaliza igual cuando TODO el campo viene en mayusculas (Bloq Mayus)', () => {
+      expect(titleCaseEspanol('GRUPO FINANCIERO DEL NORTE'))
+        .toBe('Grupo Financiero del Norte');
+      expect(titleCaseEspanol('JUAN PEREZ')).toBe('Juan Perez');
+    });
+
+    // NOTA: limitacion aceptada a proposito. Una marca de una sola
+    // palabra escrita sola y en caja alta es indistinguible de un
+    // nombre con Bloq Mayus, y se normaliza.
+    it('no puede distinguir una marca de una palabra escrita sola en caja alta', () => {
+      expect(titleCaseEspanol('CLICK')).toBe('Click');
+    });
+  });
 });
 
 // ------------------------------------------------------------
@@ -289,6 +330,7 @@ describe('normalizarRegistro', () => {
     puesto: 'desarrollador de sistemas',
     telefono: '+52 (55) 1234-5678',
     correo: ' Sistemas@TMSourcing.COM ',
+    acepto_privacidad: true,
   };
 
   it('devuelve todos los campos normalizados con un body valido', () => {
@@ -302,6 +344,60 @@ describe('normalizarRegistro', () => {
       puesto: 'Desarrollador de Sistemas',
       telefono: '5512345678',
       correo: 'sistemas@tmsourcing.com',
+      acepto_privacidad: true,
+    });
+  });
+
+  // ----------------------------------------------------------
+  // Consentimiento del aviso de privacidad
+  // ----------------------------------------------------------
+  // La validacion del navegador no basta: se puede enviar un POST
+  // directo al endpoint sin pasar por el formulario. Estas pruebas
+  // fijan que el backend exija el consentimiento de forma estricta.
+  // ----------------------------------------------------------
+  describe('consentimiento del aviso de privacidad', () => {
+    const sinConsentimiento = { ...registroValido };
+    delete sinConsentimiento.acepto_privacidad;
+
+    it('lanza si el campo viene ausente', () => {
+      const err = capturar(() => normalizarRegistro({ ...sinConsentimiento }));
+      expect(err).toMatchObject({
+        campo: 'acepto_privacidad',
+        mensaje: 'Debes aceptar el aviso de privacidad para registrarte.',
+      });
+    });
+
+    it('lanza si viene en false', () => {
+      const err = capturar(() =>
+        normalizarRegistro({ ...registroValido, acepto_privacidad: false })
+      );
+      expect(err).toMatchObject({ campo: 'acepto_privacidad' });
+    });
+
+    it('exige el booleano true, no un valor que solo parezca verdadero', () => {
+      for (const valor of ['true', 'si', 1, 'on', {}, []]) {
+        const err = capturar(() =>
+          normalizarRegistro({ ...registroValido, acepto_privacidad: valor })
+        );
+        expect(err).toMatchObject({ campo: 'acepto_privacidad' });
+      }
+    });
+
+    it('acepta cuando viene el booleano true', () => {
+      const resultado = normalizarRegistro({ ...registroValido });
+      expect(resultado.acepto_privacidad).toBe(true);
+    });
+
+    it('se valida al final, para no tapar los errores de los campos visibles', () => {
+      // Con el telefono mal Y sin consentimiento, el usuario debe ver
+      // primero el error del campo que tiene delante en pantalla.
+      const err = capturar(() =>
+        normalizarRegistro({
+          ...sinConsentimiento,
+          telefono: '123',
+        })
+      );
+      expect(err).toMatchObject({ campo: 'telefono' });
     });
   });
 

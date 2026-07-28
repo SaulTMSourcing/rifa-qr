@@ -61,6 +61,20 @@ function capitalizarPalabra(palabra) {
 }
 
 // ------------------------------------------------------------
+// tieneMayusculasInternas(): detecta si una palabra lleva alguna
+// mayuscula despues de su primera letra.
+//
+// Sirve para reconocer capitalizacion deliberada, que no se debe
+// pisar. Cubre dos casos con una sola prueba:
+//   - Siglas y marcas en caja alta: CLICK, BBVA, HSBC, SOFOM
+//   - Nombres en caja camello:      TMSourcing, McAllister
+// ------------------------------------------------------------
+function tieneMayusculasInternas(palabra) {
+  const desdeLaSegunda = palabra.slice(1);
+  return desdeLaSegunda !== desdeLaSegunda.toLocaleLowerCase('es-MX');
+}
+
+// ------------------------------------------------------------
 // titleCaseEspanol(): aplica title case respetando particulas.
 // Regla:
 //   - La primera palabra SIEMPRE va capitalizada (aunque sea
@@ -68,16 +82,40 @@ function capitalizarPalabra(palabra) {
 //   - Las particulas en cualquier otra posicion van en minuscula:
 //     "Pena de la Torre", "Ruiz del Castillo".
 //   - El resto de palabras van capitalizadas normalmente.
+//
+// EXCEPCION: capitalizacion deliberada.
+//   Si el campo mezcla mayusculas y minusculas, las palabras con
+//   mayusculas internas se dejan intactas. Sin esto, los nombres de
+//   empresa se degradan: "TMSourcing" terminaba como "Tmsourcing" y
+//   "CLICK" como "Click", que es justo el dato que despues se usa
+//   como lista de contactos del evento.
+//
+//   Si el campo viene COMPLETO en mayusculas se normaliza igual, sin
+//   excepciones: casi siempre es Bloq Mayus encendido, no una
+//   decision ("JUAN PEREZ" debe quedar "Juan Perez").
+//
+//   Limitacion conocida y aceptada: una marca de una sola palabra
+//   escrita sola y en caja alta ("CLICK" como empresa completa) cae
+//   en el caso de Bloq Mayus y queda "Click". No hay forma de
+//   distinguirla de un nombre mal escrito, y equivocarse hacia el
+//   lado de normalizar molesta menos.
 // ------------------------------------------------------------
 function titleCaseEspanol(texto) {
   const limpio = trim(texto);
   if (!limpio) return '';
+
+  const todoEnMayusculas = limpio === limpio.toLocaleUpperCase('es-MX');
 
   const palabras = limpio.split(' ');
 
   return palabras
     .map((palabra, index) => {
       const palabraLower = palabra.toLocaleLowerCase('es-MX');
+
+      // Capitalizacion deliberada: respetarla tal cual
+      if (!todoEnMayusculas && tieneMayusculasInternas(palabra)) {
+        return palabra;
+      }
 
       // Primera palabra siempre capitalizada
       if (index === 0) {
@@ -206,6 +244,27 @@ export function normalizarRegistro(datosCrudos) {
     telefono: normalizarTelefono(datosCrudos.telefono),
     correo: normalizarCorreo(datosCrudos.correo),
   };
+
+  // ----------------------------------------------------------
+  // Consentimiento del aviso de privacidad
+  // ----------------------------------------------------------
+  // Se exige explicitamente true. Un checkbox desmarcado llega como
+  // false o ausente, y ninguno de los dos vale como consentimiento.
+  //
+  // Se valida al final para no alterar el orden de los mensajes de
+  // los campos del formulario, que es el orden en que aparecen en
+  // pantalla.
+  //
+  // La validacion del navegador no basta: cualquiera puede enviar
+  // un POST directo al endpoint saltandose el formulario.
+  // ----------------------------------------------------------
+  if (datosCrudos.acepto_privacidad !== true) {
+    throw {
+      campo: 'acepto_privacidad',
+      mensaje: 'Debes aceptar el aviso de privacidad para registrarte.',
+    };
+  }
+  normalizado.acepto_privacidad = true;
 
   return normalizado;
 }

@@ -39,6 +39,20 @@ const REGEX_NOMBRE = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'-]+$/;
 const REGEX_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 // ----------------------------------------------------------
+// Aviso de privacidad
+// ----------------------------------------------------------
+// La LFPDPPP obliga a informar al titular y recabar su
+// consentimiento ANTES de capturar sus datos personales.
+//
+// La URL se configura con VITE_AVISO_PRIVACIDAD_URL en el .env del
+// frontend. Mientras no este definida, el texto se muestra sin
+// enlace: el consentimiento se sigue exigiendo, pero el usuario no
+// tiene donde leer el aviso, asi que hay que configurarla antes de
+// salir a produccion.
+// ----------------------------------------------------------
+const AVISO_URL = import.meta.env.VITE_AVISO_PRIVACIDAD_URL || '';
+
+// ----------------------------------------------------------
 // Formateador del telefono: inserta espacios mientras el
 // usuario tipea, sin alterar los digitos.
 //   "5"         -> "5"
@@ -75,6 +89,7 @@ function FormularioRegistro({ onSubmit, defaultValues }) {
       telefono: '',
       empresa: '',
       puesto: '',
+      acepto_privacidad: false,
     },
   });
 
@@ -277,6 +292,74 @@ function FormularioRegistro({ onSubmit, defaultValues }) {
           isValid={esValido('puesto')}
         />
       </fieldset>
+
+      {/* =========================================== */}
+      {/* Consentimiento de datos personales           */}
+      {/* =========================================== */}
+      {/*
+        Va justo antes del boton, que es el ultimo punto en el que
+        el usuario puede decidir. El checkbox arranca desmarcado a
+        proposito: un consentimiento premarcado no es valido.
+      */}
+      <div className="border-t border-gray-200 pt-5">
+        <label
+          htmlFor="acepto_privacidad"
+          className="flex items-start gap-3 cursor-pointer"
+        >
+          <input
+            id="acepto_privacidad"
+            type="checkbox"
+            className="
+              mt-0.5 h-5 w-5 shrink-0
+              rounded border-2 border-gray-300
+              text-click-orange
+              focus:ring-2 focus:ring-click-orange/30
+              cursor-pointer
+            "
+            aria-invalid={errors.acepto_privacidad ? 'true' : 'false'}
+            aria-describedby={errors.acepto_privacidad ? 'error-acepto_privacidad' : undefined}
+            {...register('acepto_privacidad', {
+              required: 'Debes aceptar el aviso de privacidad para continuar.',
+            })}
+          />
+          <span className="text-sm text-click-gray leading-snug">
+            He leído y acepto el{' '}
+            {AVISO_URL ? (
+              <a
+                href={AVISO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-click-orange underline hover:text-click-orange-dark"
+                // Evita que abrir el aviso alterne el checkbox
+                onClick={(e) => e.stopPropagation()}
+              >
+                Aviso de Privacidad
+              </a>
+            ) : (
+              <strong className="font-semibold text-ink">Aviso de Privacidad</strong>
+            )}
+            {' '}y autorizo el tratamiento de mis datos personales para participar
+            en la rifa.
+          </span>
+        </label>
+
+        {errors.acepto_privacidad && (
+          <p
+            id="error-acepto_privacidad"
+            className="mt-2 text-sm text-danger font-medium animate-fade-up"
+            role="alert"
+          >
+            {errors.acepto_privacidad.message}
+          </p>
+        )}
+
+        {/* Recordatorio visible solo en desarrollo */}
+        {!AVISO_URL && import.meta.env.DEV && (
+          <p className="mt-2 text-xs text-danger">
+            Falta configurar VITE_AVISO_PRIVACIDAD_URL en frontend/.env
+          </p>
+        )}
+      </div>
 
       {/* =========================================== */}
       {/* Boton de envio                               */}

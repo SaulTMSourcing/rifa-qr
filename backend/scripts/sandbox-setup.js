@@ -120,6 +120,9 @@ function participante(id, indice) {
     GANADORES_RECLAMADOS.includes(id) ? 1 : 0,
     fecha.toISOString().slice(0, 19).replace('T', ' '),
     '187.190.0.' + (indice % 250 + 1),
+    // Todo registro real pasa por el checkbox obligatorio del
+    // aviso de privacidad, asi que los datos de prueba lo reflejan.
+    1,
   ];
 }
 
@@ -178,7 +181,7 @@ async function main() {
   }
   await conn.query(
     'INSERT INTO participantes (id, nombre, apellido_pat, apellido_mat, empresa, puesto,' +
-    ' telefono, correo, es_ganador, fecha_registro, ip_origen) VALUES ?',
+    ' telefono, correo, es_ganador, fecha_registro, ip_origen, acepto_privacidad) VALUES ?',
     [filas]
   );
   console.log('[sandbox] ' + filas.length + ' participantes sembrados (IDs ' +

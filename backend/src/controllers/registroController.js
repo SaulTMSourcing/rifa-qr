@@ -63,8 +63,8 @@ export async function registrarParticipante(req, res) {
     const [resultadoInsert] = await connection.execute(
       `INSERT INTO participantes
          (nombre, apellido_pat, apellido_mat, empresa, puesto,
-          telefono, correo, ip_origen)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          telefono, correo, ip_origen, acepto_privacidad)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         datos.nombre,
         datos.apellido_pat,
@@ -74,6 +74,11 @@ export async function registrarParticipante(req, res) {
         datos.telefono,
         datos.correo,
         ipOrigen,
+        // Constancia del consentimiento. normalizarRegistro ya
+        // rechazo el registro si no venia aceptado, asi que aqui
+        // siempre es true; se guarda como evidencia junto con
+        // fecha_registro, que da la marca de tiempo.
+        datos.acepto_privacidad,
       ]
     );
 

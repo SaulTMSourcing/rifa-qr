@@ -45,6 +45,11 @@ CREATE TABLE IF NOT EXISTS participantes (
   es_ganador      BOOLEAN       NOT NULL DEFAULT FALSE,
   fecha_registro  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   ip_origen       VARCHAR(45)   NULL,
+  -- Constancia del consentimiento del aviso de privacidad (LFPDPPP).
+  -- El backend rechaza el registro si no viene aceptado, asi que en
+  -- la practica siempre es TRUE; se guarda como evidencia y su marca
+  -- de tiempo es fecha_registro.
+  acepto_privacidad BOOLEAN     NOT NULL DEFAULT FALSE,
   PRIMARY KEY (id),
   UNIQUE KEY uk_participantes_correo (correo),
   INDEX idx_participantes_fecha (fecha_registro),
