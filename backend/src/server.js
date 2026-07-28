@@ -13,7 +13,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import pool, { testConnection } from './config/db.js';
-import registroRoutes from './routes/registro.routes.js';
+import registroRoutes, { configRateLimit } from './routes/registro.routes.js';
 
 dotenv.config();
 
@@ -101,6 +101,18 @@ async function start() {
     console.log(`[Server] Health check: http://localhost:${PORT}/api/health`);
     console.log(`[Server] Registro:     POST http://localhost:${PORT}/api/registrar`);
     console.log(`[Server] Entorno: ${process.env.NODE_ENV || 'development'}`);
+
+    // El limite es por IP, y en un evento toda la sala comparte la
+    // IP del WiFi. Se imprime al arrancar para poder confirmarlo de
+    // un vistazo antes de abrir el registro.
+    if (configRateLimit.habilitado) {
+      console.log(
+        `[Server] Rate limit: ${configRateLimit.max} registros por IP ` +
+        `cada ${configRateLimit.ventanaMinutos} min`
+      );
+    } else {
+      console.log('[Server] Rate limit: DESACTIVADO (RATE_LIMIT_MAX=0)');
+    }
   });
 }
 
