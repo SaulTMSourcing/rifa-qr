@@ -29,7 +29,7 @@ function ResumenDatos({ datos, onEditar, onConfirmar, enviando }) {
   if (enviando) {
     return (
       <div className="py-10 flex justify-center animate-fade-up">
-        <OrganicLoader numero={1} label="Registrando..." />
+        <OrganicLoader label="Registrando..." />
       </div>
     );
   }

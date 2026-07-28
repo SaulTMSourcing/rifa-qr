@@ -300,7 +300,7 @@ function App() {
             {/* Estado: cargando */}
             {vista === 'cargando' && (
               <div className="py-10 flex justify-center">
-                <OrganicLoader numero={1} label="Cargando..." />
+                <OrganicLoader label="Cargando..." />
               </div>
             )}
 
