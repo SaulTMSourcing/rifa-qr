@@ -28,6 +28,8 @@ import ResumenDatos from './components/ResumenDatos';
 import ResultadoGanador from './components/ResultadoGanador';
 import ResultadoParticipante from './components/ResultadoParticipante';
 import ResultadoError from './components/ResultadoError';
+import clickLogo from './assets/click-logo.png';
+import lextechLogo from './assets/lextech-logo.png';
  
 // ------------------------------------------------------------
 // Clave en localStorage. Versionada por si en el futuro el
@@ -245,13 +247,28 @@ function App() {
       {/* =================================================== */}
       <header className="bg-white border-b border-gray-200 px-4 py-5 shadow-sm">
         <div className="max-w-md mx-auto text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-click-orange mb-1">
+          <p className="text-xs font-bold uppercase tracking-widest text-click-orange mb-3">
             Convención Nacional ASOFOM
           </p>
-          <h1 className="text-2xl font-black text-ink">
-            Registro <span className="text-click-orange">CLICK</span>
+
+          {/*
+            El logo ES el titulo de la pagina, por eso va dentro del
+            h1: se conserva la jerarquia semantica y los lectores de
+            pantalla anuncian el alt como encabezado.
+            width/height explicitos reservan el espacio antes de que
+            la imagen cargue y evitan el salto de layout (CLS).
+          */}
+          <h1>
+            <img
+              src={clickLogo}
+              alt="CLICK Seguridad Jurídica"
+              width={600}
+              height={225}
+              className="h-14 sm:h-16 w-auto mx-auto"
+            />
           </h1>
-          <p className="text-xs text-click-gray mt-1">
+
+          <p className="text-xs text-click-gray mt-3">
             Regístrate y participa en la rifa
           </p>
         </div>
@@ -342,8 +359,30 @@ function App() {
       {/* =================================================== */}
       {/* Footer                                               */}
       {/* =================================================== */}
-      <footer className="px-4 py-4 text-center text-xs text-click-gray">
-        <p>CLICK Seguridad Jurídica · ASOFOM 2026</p>
+      {/*
+        El logo de Lextech es vertical (retrato), asi que se apila
+        bajo su etiqueta en vez de ir en linea: forzarlo a una fila
+        lo dejaria demasiado pequeno para reconocerse.
+      */}
+      <footer className="px-4 py-6">
+        <div className="max-w-md mx-auto flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-click-gray/70">
+              Impulsado por
+            </p>
+            <img
+              src={lextechLogo}
+              alt="Lextech"
+              width={1226}
+              height={1783}
+              className="h-16 w-auto"
+            />
+          </div>
+
+          <p className="text-xs text-click-gray text-center border-t border-gray-200 pt-4 w-full">
+            CLICK Seguridad Jurídica · ASOFOM 2026
+          </p>
+        </div>
       </footer>
     </div>
   );

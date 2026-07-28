@@ -2,9 +2,37 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- ============================================================ -->
+    <!-- Identidad                                                     -->
+    <!-- ============================================================ -->
+    <!-- El favicon es el isotipo de CLICK centrado en un lienzo
+         cuadrado (se genera a partir de src/assets/click-isotipo.png).
+         apple-touch-icon se usa si alguien guarda la pagina en la
+         pantalla de inicio del celular. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Color de la barra del navegador en moviles: naranja CLICK -->
+    <meta name="theme-color" content="#ff6b00" />
+
     <title>Registro CLICK | ASOFOM 2026</title>
+    <meta
+      name="description"
+      content="Registro de asistentes a la Convencion Nacional ASOFOM 2026. Registrate y participa en la rifa de CLICK Seguridad Juridica."
+    />
+
+    <!-- ============================================================ -->
+    <!-- Rendimiento: tipografia                                       -->
+    <!-- ============================================================ -->
+    <!-- index.css importa Inter desde Google Fonts. El preconnect
+         abre la conexion TLS antes de que el CSS lo pida, lo que
+         recorta el tiempo hasta el primer render. Importa en el
+         evento: el WiFi compartido de una convencion es lento y la
+         pagina se abre desde un QR, sin cache previa. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   </head>
   <body>
     <div id="root"></div>
