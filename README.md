@@ -11,7 +11,8 @@ Aplicación web full-stack para eventos. Los asistentes se registran escaneando 
 *   **Rate limiting:** `express-rate-limit` protege `POST /api/registrar` (ventana y máximo configurables por `.env`); `/api/health` queda libre.
 *   **Anti doble registro:** El resultado se persiste en `localStorage`; al reabrir la app en el mismo dispositivo se muestra el registro existente, con escape "No soy yo" para registrar a otra persona.
 *   **Health check:** `GET /api/health` verifica servidor y conexión a la base; el frontend lo consulta al iniciar y muestra un aviso si el backend no responde.
-*   **Normalización de datos:** Title case en español (partículas como "de", "del", "la" en minúscula), correo en minúsculas validado con `validator`, teléfono normalizado a 10 dígitos (formato México).
+*   **Normalización de datos:** Title case en español (partículas como "de", "del", "la" en minúscula), correo en minúsculas validado con `validator`, teléfono normalizado a 10 dígitos (formato México). Respeta la capitalización deliberada de marcas y siglas: `TMSourcing` y `CLICK` no se degradan.
+*   **Consentimiento de datos personales:** Checkbox obligatorio del aviso de privacidad (LFPDPPP), exigido también en el backend y guardado como constancia en la base.
 *   **Interfaz moderna:** React + Tailwind CSS, máquina de estados de vistas, loader animado y confetti para ganadores.
 
 ## 🛠️ Stack Tecnológico
@@ -48,6 +49,10 @@ rifa-qr/
 │   │   ├── utils/
 │   │   │   └── normalizar.js              # Normalización y validación de datos
 │   │   └── server.js                      # Express, CORS, /api/health, arranque
+│   ├── scripts/
+│   │   ├── sandbox-setup.js               # Monta la BD local de pruebas
+│   │   ├── sandbox-check-admin.js         # Valida las consultas de admin.sql
+│   │   └── sandbox-check-vacio.js         # Valida el caso de BD vacia
 │   ├── .env.example                       # Plantilla de variables de entorno
 │   ├── package.json
 │   └── vitest.config.js
@@ -70,7 +75,10 @@ rifa-qr/
 │   ├── .env.example                       # Plantilla de variables de entorno (Vite)
 │   ├── package.json
 │   └── vite.config.js
+├── migrations/
+│   └── 001-aviso-privacidad.sql           # Cambios sobre una BD ya creada
 ├── schema.sql                             # Estructura de la BD + instrucciones Hostinger
+├── admin.sql                              # Consultas de administracion del evento
 └── README.md
 ```
 
@@ -90,10 +98,22 @@ rifa-qr/
 cd backend
 cp .env.example .env
 
-# Frontend (URL del backend)
+# Frontend (URL del backend, aviso de privacidad)
 cd ../frontend
 cp .env.example .env
 ```
+
+Hay tres archivos de entorno en el backend y conviene no confundirlos:
+
+| Archivo | Para que sirve |
+| --- | --- |
+| `.env` | Desarrollo local. Debe apuntar a la base local, nunca a produccion. |
+| `.env.sandbox` | Conexion a la base local de pruebas. Lo usan los scripts de `scripts/`. |
+| `.env.production` | Credenciales reales. Se sube al servidor renombrado a `.env`. |
+
+Ninguno de los tres se versiona: los bloquea el `.gitignore`. Solo se suben las plantillas `.env.example`.
+
+> **Importante:** no desarrolles apuntando a la base de produccion. Cada prueba escribe una fila real y adelanta el contador de numeros de rifa, que es justo el que decide los premios.
 
 **3. Dependencias.** Instala en cada carpeta:
 
@@ -149,9 +169,12 @@ Registra un participante y resuelve la rifa en una sola operación transaccional
   "empresa": "TMSourcing",
   "puesto": "Analista",
   "telefono": "55 1234 5678",
-  "correo": "irving@ejemplo.com"
+  "correo": "irving@ejemplo.com",
+  "acepto_privacidad": true
 }
 ```
+
+`acepto_privacidad` debe ser el booleano `true`. Se exige de forma estricta: `"true"` como texto, `1` o `"on"` se rechazan con `400`. El backend no confia en la validacion del navegador, porque el endpoint se puede llamar directo.
 
 **Response `201`:**
 
@@ -194,6 +217,50 @@ cd frontend
 npm test              # una corrida
 npm run test:watch    # modo watch
 ```
+
+### Base de datos local de pruebas
+
+Para no depender de la base de produccion, el backend puede montar una base local con datos de ejemplo. Requiere un MySQL 8 en esta maquina y un `backend/.env.sandbox` con sus credenciales.
+
+```bash
+cd backend
+npm run sandbox:setup        # crea la BD y siembra datos de prueba
+npm run sandbox:check        # ejecuta admin.sql y verifica los resultados
+npm run sandbox:check-vacio  # prueba el caso de BD vacia (usa rollback)
+```
+
+Los datos sembrados cubren a proposito los cuatro estados que distingue `admin.sql`: premio entregado, pendiente, perdido por un ID quemado, y un caso que requiere revision manual.
+
+## 🚀 Despliegue a Produccion
+
+**1. Migraciones.** Si la base ya existe, aplica los archivos de `migrations/` **antes** de subir el codigo nuevo. Son idempotentes: correrlos dos veces no hace dano.
+
+```
+migrations/001-aviso-privacidad.sql   -> agrega la columna acepto_privacidad
+```
+
+El backend actual escribe en esa columna. Si subes el codigo sin migrar, **todos los registros fallaran**. Las bases creadas desde cero con `schema.sql` ya la traen y no necesitan la migracion.
+
+**2. Variables del servidor.** Sube `backend/.env.production` renombrado a `.env`, y ajusta:
+
+- `CORS_ORIGIN` -> el dominio real del frontend
+- `NODE_ENV=production`
+- `RATE_LIMIT_MAX` -> ver la advertencia de abajo
+
+**3. Frontend.** Antes de `npm run build`, define en su `.env`:
+
+- `VITE_API_URL` -> la URL publica del backend
+- `VITE_AVISO_PRIVACIDAD_URL` -> la URL del aviso de privacidad
+
+**4. Antes de abrir el registro.** Ejecuta el bloque 8 de `admin.sql` con la asistencia que esperas: avisa si algun premio quedo configurado en un numero que probablemente no se alcance.
+
+### ⚠️ El rate limit en un evento presencial
+
+El limite es **por IP**, y en una convencion toda la sala sale por la misma IP publica del WiFi. No se reparte por persona: se consume entre todas juntas.
+
+Regla practica: **al menos el doble de la asistencia esperada**. Con 150 asistentes, `RATE_LIMIT_MAX=300`.
+
+Si el dia del evento el proxy no reenvia la IP real del cliente y todo el trafico se ve como una sola IP, cualquier limite bloquea a todos por igual. En ese caso `RATE_LIMIT_MAX=0` lo desactiva por completo. El valor efectivo se imprime al arrancar el servidor.
 
 ## 🔒 Notas de Seguridad
 

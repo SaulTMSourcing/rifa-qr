@@ -19,6 +19,12 @@ frontend/.env
 .env.sandbox
 backend/.env.sandbox
 
+# Credenciales reales de Hostinger. Se sube al servidor a mano,
+# nunca a Git.
+.env.production
+backend/.env.production
+frontend/.env.production
+
 # Sí permitimos los .env.example (plantilla sin secretos)
 !.env.example
 !backend/.env.example
