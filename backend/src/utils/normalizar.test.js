@@ -1,0 +1,408 @@
+// ============================================================
+// backend/src/utils/normalizar.test.js
+// ------------------------------------------------------------
+// Suite de tests (Vitest) para el modulo de normalizacion.
+//
+// Cubre las cuatro funciones internas (trim, titleCaseEspanol,
+// normalizarCorreo, normalizarTelefono) y la funcion publica
+// normalizarRegistro, incluyendo el orden de validacion.
+//
+// IMPORTANTE: las validaciones lanzan OBJETOS PLANOS con la
+// forma { campo, mensaje }, NO instancias de Error. Por eso se
+// usa el helper capturar() con try/catch en lugar de toThrow
+// con matchers de mensaje.
+// ============================================================
+
+import { describe, it, expect } from 'vitest';
+import { normalizarRegistro, _internos } from './normalizar.js';
+
+const { trim, titleCaseEspanol, normalizarCorreo, normalizarTelefono } =
+  _internos;
+
+// ------------------------------------------------------------
+// Helper: ejecuta fn y devuelve el valor lanzado (o undefined
+// si no lanzo nada). Permite hacer asserts sobre objetos planos.
+// ------------------------------------------------------------
+function capturar(fn) {
+  try {
+    fn();
+  } catch (e) {
+    return e;
+  }
+  return undefined;
+}
+
+// ------------------------------------------------------------
+// trim()
+// ------------------------------------------------------------
+describe('trim', () => {
+  it('elimina espacios al inicio y al final', () => {
+    expect(trim('  hola  ')).toBe('hola');
+  });
+
+  it('colapsa multiples espacios internos a uno solo', () => {
+    expect(trim('  Irving   Alejandro  ')).toBe('Irving Alejandro');
+  });
+
+  it('colapsa tabs y saltos de linea internos como espacios', () => {
+    expect(trim('Irving\t\nAlejandro')).toBe('Irving Alejandro');
+  });
+
+  it('devuelve cadena vacia para null', () => {
+    expect(trim(null)).toBe('');
+  });
+
+  it('devuelve cadena vacia para undefined', () => {
+    expect(trim(undefined)).toBe('');
+  });
+
+  it('devuelve cadena vacia para un numero', () => {
+    expect(trim(42)).toBe('');
+  });
+
+  it('devuelve cadena vacia para un string de solo espacios', () => {
+    expect(trim('     ')).toBe('');
+  });
+});
+
+// ------------------------------------------------------------
+// titleCaseEspanol()
+// ------------------------------------------------------------
+describe('titleCaseEspanol', () => {
+  it('capitaliza un nombre simple', () => {
+    expect(titleCaseEspanol('irving alejandro')).toBe('Irving Alejandro');
+  });
+
+  it('convierte mayusculas completas a title case', () => {
+    expect(titleCaseEspanol('IRVING ALEJANDRO')).toBe('Irving Alejandro');
+  });
+
+  it('deja particulas en minuscula cuando van en posicion media', () => {
+    expect(titleCaseEspanol('PEÑA DE LA TORRE')).toBe('Peña de la Torre');
+  });
+
+  it('capitaliza la particula cuando es la PRIMERA palabra', () => {
+    expect(titleCaseEspanol('de la vega')).toBe('De la Vega');
+  });
+
+  it('maneja la particula "del" en posicion media', () => {
+    expect(titleCaseEspanol('ruiz del castillo')).toBe('Ruiz del Castillo');
+  });
+
+  it('maneja la conjuncion "e" como particula media', () => {
+    expect(titleCaseEspanol('garcía e iturbide')).toBe('García e Iturbide');
+  });
+
+  it('capitaliza despues de guiones', () => {
+    expect(titleCaseEspanol('saint-pierre')).toBe('Saint-Pierre');
+  });
+
+  it('capitaliza despues de apostrofes', () => {
+    expect(titleCaseEspanol("o'connor")).toBe("O'Connor");
+  });
+
+  it('respeta acentos y enie con locale es-MX', () => {
+    expect(titleCaseEspanol('josé maría muñoz')).toBe('José María Muñoz');
+    expect(titleCaseEspanol('ÁNGEL NUÑEZ')).toBe('Ángel Nuñez');
+  });
+
+  it('devuelve cadena vacia para string vacio', () => {
+    expect(titleCaseEspanol('')).toBe('');
+  });
+
+  it('devuelve cadena vacia para entradas no-string', () => {
+    expect(titleCaseEspanol(null)).toBe('');
+    expect(titleCaseEspanol(undefined)).toBe('');
+  });
+
+  it('normaliza espacios extra antes de capitalizar', () => {
+    expect(titleCaseEspanol('  pedro   paramo  ')).toBe('Pedro Paramo');
+  });
+});
+
+// ------------------------------------------------------------
+// normalizarCorreo()
+// ------------------------------------------------------------
+describe('normalizarCorreo', () => {
+  it('convierte a minusculas y hace trim', () => {
+    expect(normalizarCorreo('  Sistemas@TMSourcing.COM  ')).toBe(
+      'sistemas@tmsourcing.com'
+    );
+  });
+
+  it('acepta un correo valido ya normalizado sin cambios', () => {
+    expect(normalizarCorreo('a.b+c@dominio.mx')).toBe('a.b+c@dominio.mx');
+  });
+
+  it('lanza { campo: correo } si el formato es invalido', () => {
+    const err = capturar(() => normalizarCorreo('no-es-un-correo'));
+    expect(err).toBeDefined();
+    expect(err).toMatchObject({ campo: 'correo' });
+    expect(err.mensaje).toBe('El formato del correo no es valido.');
+  });
+
+  it('lanza { campo: correo } si esta vacio', () => {
+    const err = capturar(() => normalizarCorreo(''));
+    expect(err).toBeDefined();
+    expect(err).toMatchObject({
+      campo: 'correo',
+      mensaje: 'El correo es obligatorio.',
+    });
+  });
+
+  it('lanza si solo contiene espacios (trim lo deja vacio)', () => {
+    const err = capturar(() => normalizarCorreo('    '));
+    expect(err).toMatchObject({ campo: 'correo' });
+    expect(err.mensaje).toBe('El correo es obligatorio.');
+  });
+
+  it('lanza si es null o undefined', () => {
+    expect(capturar(() => normalizarCorreo(null))).toMatchObject({
+      campo: 'correo',
+    });
+    expect(capturar(() => normalizarCorreo(undefined))).toMatchObject({
+      campo: 'correo',
+    });
+  });
+
+  it('lanza { campo: correo } si excede 180 caracteres', () => {
+    // Correo de 190 chars que SI pasa validator.isEmail
+    // (local <= 64, labels de dominio <= 63, total <= 254)
+    const local = 'a'.repeat(64);
+    const dominio = `${'b'.repeat(60)}.${'c'.repeat(60)}.com`;
+    const correoLargo = `${local}@${dominio}`; // 64 + 1 + 125 = 190
+
+    const err = capturar(() => normalizarCorreo(correoLargo));
+    expect(err).toBeDefined();
+    expect(err).toMatchObject({
+      campo: 'correo',
+      mensaje: 'El correo excede 180 caracteres.',
+    });
+  });
+
+  it('acepta un correo de exactamente 180 caracteres (limite)', () => {
+    const local = 'a'.repeat(64);
+    const dominio = `${'b'.repeat(55)}.${'c'.repeat(55)}.com`;
+    const correoLimite = `${local}@${dominio}`; // 64 + 1 + 115 = 180
+
+    expect(correoLimite.length).toBe(180);
+    expect(normalizarCorreo(correoLimite)).toBe(correoLimite);
+  });
+
+  it('el objeto lanzado NO es instancia de Error (diseno del modulo)', () => {
+    const err = capturar(() => normalizarCorreo('invalido'));
+    expect(err instanceof Error).toBe(false);
+  });
+});
+
+// ------------------------------------------------------------
+// normalizarTelefono()
+// ------------------------------------------------------------
+describe('normalizarTelefono', () => {
+  it('acepta 10 digitos limpios tal cual', () => {
+    expect(normalizarTelefono('5512345678')).toBe('5512345678');
+  });
+
+  it('limpia espacios y guiones', () => {
+    expect(normalizarTelefono('55 1234-5678')).toBe('5512345678');
+  });
+
+  it('limpia parentesis', () => {
+    expect(normalizarTelefono('(55) 1234-5678')).toBe('5512345678');
+  });
+
+  it('quita la lada +52 de Mexico (12 digitos)', () => {
+    expect(normalizarTelefono('+52 55 1234 5678')).toBe('5512345678');
+  });
+
+  it('recorta el 1 inicial del formato antiguo (11 digitos)', () => {
+    expect(normalizarTelefono('1 55 1234 5678')).toBe('5512345678');
+  });
+
+  it('lanza { campo: telefono } con menos de 10 digitos', () => {
+    const err = capturar(() => normalizarTelefono('12345'));
+    expect(err).toBeDefined();
+    expect(err).toMatchObject({
+      campo: 'telefono',
+      mensaje: 'El telefono debe tener 10 digitos (formato Mexico).',
+    });
+  });
+
+  it('lanza con 11 digitos que NO empiezan con 1', () => {
+    const err = capturar(() => normalizarTelefono('25512345678'));
+    expect(err).toMatchObject({ campo: 'telefono' });
+  });
+
+  it('lanza con 12 digitos que NO empiezan con 52', () => {
+    const err = capturar(() => normalizarTelefono('995512345678'));
+    expect(err).toMatchObject({ campo: 'telefono' });
+  });
+
+  // NOTA: el formato movil antiguo "+52 1 55 ..." (13 digitos con
+  // prefijo 521) NO esta soportado: el codigo solo recorta 12->10
+  // (lada 52) y 11->10 (1 inicial), asi que 13 digitos lanzan.
+  // Este test documenta el comportamiento REAL actual.
+  it('lanza con el formato movil antiguo +52 1 (13 digitos)', () => {
+    const err = capturar(() => normalizarTelefono('+52 1 55 1234 5678'));
+    expect(err).toMatchObject({ campo: 'telefono' });
+  });
+
+  it('lanza si esta vacio', () => {
+    const err = capturar(() => normalizarTelefono(''));
+    expect(err).toMatchObject({
+      campo: 'telefono',
+      mensaje: 'El telefono es obligatorio.',
+    });
+  });
+
+  it('lanza si es null, undefined o solo espacios', () => {
+    expect(capturar(() => normalizarTelefono(null))).toMatchObject({
+      campo: 'telefono',
+    });
+    expect(capturar(() => normalizarTelefono(undefined))).toMatchObject({
+      campo: 'telefono',
+    });
+    expect(capturar(() => normalizarTelefono('   '))).toMatchObject({
+      campo: 'telefono',
+    });
+  });
+
+  it('lanza si tras limpiar no quedan digitos (solo letras)', () => {
+    const err = capturar(() => normalizarTelefono('abcdefghij'));
+    expect(err).toMatchObject({
+      campo: 'telefono',
+      mensaje: 'El telefono debe tener 10 digitos (formato Mexico).',
+    });
+  });
+});
+
+// ------------------------------------------------------------
+// normalizarRegistro()
+// ------------------------------------------------------------
+describe('normalizarRegistro', () => {
+  // Fixture valido reutilizable: cada test hace copia con spread
+  const registroValido = {
+    nombre: '  irving   alejandro ',
+    apellido_pat: 'PEÑA DE LA TORRE',
+    apellido_mat: "o'connor",
+    empresa: 'tm sourcing',
+    puesto: 'desarrollador de sistemas',
+    telefono: '+52 (55) 1234-5678',
+    correo: ' Sistemas@TMSourcing.COM ',
+  };
+
+  it('devuelve todos los campos normalizados con un body valido', () => {
+    const resultado = normalizarRegistro({ ...registroValido });
+
+    expect(resultado).toEqual({
+      nombre: 'Irving Alejandro',
+      apellido_pat: 'Peña de la Torre',
+      apellido_mat: "O'Connor",
+      empresa: 'Tm Sourcing',
+      puesto: 'Desarrollador de Sistemas',
+      telefono: '5512345678',
+      correo: 'sistemas@tmsourcing.com',
+    });
+  });
+
+  it('lanza { campo: body } con null', () => {
+    const err = capturar(() => normalizarRegistro(null));
+    expect(err).toMatchObject({
+      campo: 'body',
+      mensaje: 'Los datos enviados no son validos.',
+    });
+  });
+
+  it('lanza { campo: body } con undefined', () => {
+    const err = capturar(() => normalizarRegistro(undefined));
+    expect(err).toMatchObject({ campo: 'body' });
+  });
+
+  it('lanza { campo: body } con un string', () => {
+    const err = capturar(() => normalizarRegistro('hola'));
+    expect(err).toMatchObject({ campo: 'body' });
+  });
+
+  it('lanza { campo: body } con un numero', () => {
+    const err = capturar(() => normalizarRegistro(42));
+    expect(err).toMatchObject({ campo: 'body' });
+  });
+
+  // NOTA: un array pasa el filtro de body (typeof [] === 'object')
+  // y falla despues en el primer campo. Este test documenta el
+  // comportamiento REAL actual, no el ideal.
+  it('un array NO lanza body: cae hasta el campo nombre', () => {
+    const err = capturar(() => normalizarRegistro([]));
+    expect(err).toMatchObject({ campo: 'nombre' });
+  });
+
+  it('lanza con el campo correcto cuando falta un campo intermedio', () => {
+    const sinTelefono = { ...registroValido };
+    delete sinTelefono.telefono;
+
+    const err = capturar(() => normalizarRegistro(sinTelefono));
+    expect(err).toMatchObject({
+      campo: 'telefono',
+      mensaje: 'El telefono es obligatorio.',
+    });
+  });
+
+  it('lanza con campo apellido_mat si solo falta ese apellido', () => {
+    const sinApellidoMat = { ...registroValido };
+    delete sinApellidoMat.apellido_mat;
+
+    const err = capturar(() => normalizarRegistro(sinApellidoMat));
+    expect(err).toMatchObject({ campo: 'apellido_mat' });
+  });
+
+  it('reporta el PRIMER campo que falla segun el orden de construccion', () => {
+    // Orden: nombre -> apellido_pat -> apellido_mat -> empresa
+    //        -> puesto -> telefono -> correo
+    const err = capturar(() => normalizarRegistro({}));
+    expect(err).toMatchObject({ campo: 'nombre' });
+  });
+
+  it('con nombre valido pero el resto vacio, reporta apellido_pat', () => {
+    const err = capturar(() => normalizarRegistro({ nombre: 'Irving' }));
+    expect(err).toMatchObject({ campo: 'apellido_pat' });
+  });
+
+  it('con telefono y correo invalidos a la vez, reporta telefono primero', () => {
+    const ambosMal = {
+      ...registroValido,
+      telefono: '123',
+      correo: 'no-valido',
+    };
+
+    const err = capturar(() => normalizarRegistro(ambosMal));
+    expect(err).toMatchObject({ campo: 'telefono' });
+  });
+
+  it('lanza si un campo de texto excede 150 caracteres', () => {
+    const nombreLargo = { ...registroValido, nombre: 'a'.repeat(151) };
+
+    const err = capturar(() => normalizarRegistro(nombreLargo));
+    expect(err).toMatchObject({
+      campo: 'nombre',
+      mensaje: 'El campo nombre excede 150 caracteres.',
+    });
+  });
+
+  it('acepta un campo de texto de exactamente 150 caracteres', () => {
+    // 150 chars sin espacios: una sola "palabra" capitalizada
+    const nombre150 = { ...registroValido, nombre: 'a'.repeat(150) };
+
+    const resultado = normalizarRegistro(nombre150);
+    expect(resultado.nombre).toBe('A' + 'a'.repeat(149));
+  });
+
+  it('lanza campo nombre si el valor es un numero (trim lo vacia)', () => {
+    const nombreNumero = { ...registroValido, nombre: 123 };
+
+    const err = capturar(() => normalizarRegistro(nombreNumero));
+    expect(err).toMatchObject({
+      campo: 'nombre',
+      mensaje: 'El campo nombre es obligatorio.',
+    });
+  });
+});
