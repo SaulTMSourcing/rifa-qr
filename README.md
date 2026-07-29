@@ -233,13 +233,17 @@ Los datos sembrados cubren a proposito los cuatro estados que distingue `admin.s
 
 ## 🚀 Despliegue a Produccion
 
-**1. Migraciones.** Si la base ya existe, aplica los archivos de `migrations/` **antes** de subir el codigo nuevo. Son idempotentes: correrlos dos veces no hace dano.
+**1. Migraciones.** Si la base ya existe, aplica los archivos de `migrations/` **antes** de subir el codigo nuevo.
 
 ```
 migrations/001-aviso-privacidad.sql   -> agrega la columna acepto_privacidad
 ```
 
 El backend actual escribe en esa columna. Si subes el codigo sin migrar, **todos los registros fallaran**. Las bases creadas desde cero con `schema.sql` ya la traen y no necesitan la migracion.
+
+Cada migracion se ejecuta a mano en phpMyAdmin y trae sus pasos comentados dentro. La 001 son dos consultas separadas: primero un `SHOW COLUMNS` para ver si el cambio ya se aplico, y solo si no, el `ALTER TABLE`.
+
+> **Por que a mano y no automatico:** en hosting compartido el usuario de la base no puede consultar `information_schema` (da `#1044 Acceso denegado`), y `ADD COLUMN IF NOT EXISTS` no existe en MySQL, solo en MariaDB. Sin esas dos herramientas no hay forma de que el script decida solo, asi que la decision queda a cargo de quien lo ejecuta.
 
 **2. Variables del servidor.** Sube `backend/.env.production` renombrado a `.env`, y ajusta:
 
