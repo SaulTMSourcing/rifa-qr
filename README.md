@@ -251,6 +251,24 @@ El backend actual escribe en esa columna. Si subes el codigo sin migrar, **todos
 
 - `VITE_API_URL` -> la URL publica del backend
 - `VITE_AVISO_PRIVACIDAD_URL` -> la URL del aviso de privacidad
+- `VITE_BASE_PATH` -> solo si va en subcarpeta (ver abajo)
+
+Luego sube el contenido de `dist/` al hosting estatico. El frontend es HTML y JS ya compilados: **no necesita la funcion de Node.js Web App**, ni consume el cupo de apps Node del plan.
+
+### Publicar en subcarpeta de un sitio existente
+
+La app puede vivir dentro del sitio que ya existe, sin subdominio propio:
+
+| Destino | `VITE_BASE_PATH` | Donde se suben los archivos |
+| --- | --- | --- |
+| `rifa.clickseguridad.com` | vacio | raiz del subdominio |
+| `clickseguridad.com/rifa-qr` | `/rifa-qr/` | carpeta `rifa-qr/` dentro de `public_html` |
+
+Las diagonales del inicio y del final son obligatorias. Vite reescribe con ese prefijo los `href`/`src` de `index.html` y las rutas de los assets; el codigo fuente no se toca porque no hay rutas absolutas fuera de `index.html`.
+
+Convive sin problema con un WordPress en la raiz: son archivos estaticos en una carpeta aparte, y WordPress no intercepta peticiones a rutas que existen en disco. La app tampoco usa router de cliente, asi que no hace falta ninguna regla de reescritura en el servidor.
+
+La variable solo afecta al build. En desarrollo la app se sigue sirviendo desde la raiz.
 
 **4. Antes de abrir el registro.** Ejecuta el bloque 8 de `admin.sql` con la asistencia que esperas: avisa si algun premio quedo configurado en un numero que probablemente no se alcance.
 
