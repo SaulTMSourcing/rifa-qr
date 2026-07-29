@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "deploy:zip": "node scripts/preparar-deploy.mjs",
     "sandbox:setup": "node scripts/sandbox-setup.js",
     "sandbox:check": "node scripts/sandbox-check-admin.js",
     "sandbox:check-vacio": "node scripts/sandbox-check-vacio.js"

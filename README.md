@@ -245,11 +245,23 @@ Cada migracion se ejecuta a mano en phpMyAdmin y trae sus pasos comentados dentr
 
 > **Por que a mano y no automatico:** en hosting compartido el usuario de la base no puede consultar `information_schema` (da `#1044 Acceso denegado`), y `ADD COLUMN IF NOT EXISTS` no existe en MySQL, solo en MariaDB. Sin esas dos herramientas no hay forma de que el script decida solo, asi que la decision queda a cargo de quien lo ejecuta.
 
-**2. Variables del servidor.** Sube `backend/.env.production` renombrado a `.env`, y ajusta:
+**2. Backend.** Genera el paquete:
 
-- `CORS_ORIGIN` -> el dominio real del frontend
+```bash
+cd backend
+npm run deploy:zip
+```
+
+El script arma el ZIP con lista blanca: solo `package.json`, `package-lock.json`, `src/` y `.env.example`. Quedan fuera `node_modules/` (Hostinger instala con el lockfile), los archivos `.env` reales, los `*.test.js` y `scripts/` (que incluye herramientas destructivas de desarrollo). Antes de comprimir verifica que ningun valor de tus `.env` locales quedo dentro, y confirma que `package.json` esta en la raiz del ZIP, que es donde Hostinger lo busca.
+
+Sube ese ZIP en hPanel -> Websites -> Add Website -> Deploy Web App -> Upload ZIP, con **entry file** `src/server.js`.
+
+**Las variables NO van en el ZIP**: se configuran en el panel de Hostinger. Ademas de las de base de datos:
+
+- `CORS_ORIGIN` -> el dominio del frontend, **sin ruta**: `https://clickseguridad.com`, nunca `https://clickseguridad.com/rifa-qr`. El navegador manda el encabezado `Origin` sin ruta; si no coincide exacto, se bloquean todas las peticiones.
 - `NODE_ENV=production`
 - `RATE_LIMIT_MAX` -> ver la advertencia de abajo
+- `PORT` -> **no la definas**, Hostinger asigna la suya
 
 **3. Frontend.** Antes de `npm run build`, define en su `.env`:
 
