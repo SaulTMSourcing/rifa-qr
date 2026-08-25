@@ -9,7 +9,11 @@
 // lo largo del cuestionario es parte de la experiencia.
 // ============================================================
 
-import logoUrl from '../assets/click-logo.webp';
+// Version en negativo: el logo original lleva el texto en el gris
+// de marca, que sobre este fondo oscuro queda en 2.45:1 de
+// contraste y se pierde. La invertida lo deja en 15.97:1.
+// La genera scripts/preparar-assets.mjs.
+import logoUrl from '../assets/click-logo-oscuro.webp';
 import Tiburometro from './Tiburometro';
 
 function Marco({
@@ -28,11 +32,11 @@ function Marco({
                    shadow-[0_30px_80px_-20px_rgba(0,0,0,.75)]"
       >
         {/* ─── Encabezado ─── */}
-        <header className="flex shrink-0 items-center gap-3 px-5 pb-2.5 pt-4">
+        <header className="flex shrink-0 items-center gap-3 px-5 pb-3 pt-5">
           <img
             src={logoUrl}
             alt="CLICK Seguridad Jurídica"
-            className="h-8 w-auto select-none"
+            className="h-11 w-auto select-none"
             draggable="false"
           />
 

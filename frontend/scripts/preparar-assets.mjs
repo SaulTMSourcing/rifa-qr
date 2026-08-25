@@ -105,6 +105,59 @@ async function main() {
   console.log('[assets] Naranja muestreado del logo oficial: ' + hex(naranja) +
     '  rgb(' + naranja.join(', ') + ')');
   console.log('           prototipo usa #e8590c, app anterior usa #ff6b00');
+
+  // ----------------------------------------------------------
+  // Logo para fondo oscuro
+  // ----------------------------------------------------------
+  // El logo original esta hecho para fondo claro: su texto va en el
+  // gris de marca #54565a, que sobre el encabezado oscuro de la app
+  // queda en 2.45:1 de contraste. WCAG pide 3:1 como minimo para
+  // graficos, asi que "CLICK Seguridad Juridica" desaparece y solo
+  // se distingue el isotipo naranja.
+  //
+  // Se genera una version invertida: el texto gris pasa a espuma
+  // (15.97:1) y el naranja se conserva intacto, que es como se hace
+  // cualquier logotipo en negativo.
+  //
+  // Los pixeles se separan por saturacion: el texto es practicamente
+  // acromatico y el isotipo muy saturado, asi que un solo umbral
+  // basta. Solo se cambia el RGB; el canal alfa se respeta, y con el
+  // los bordes suavizados de las letras.
+  //
+  // NOTA: esto es un recoloreado mecanico. Si CLICK tiene un
+  // logotipo oficial en negativo, conviene usar ese en su lugar.
+  // ----------------------------------------------------------
+  const ESPUMA = [245, 243, 238];
+  const UMBRAL_SATURACION = 0.18;
+
+  const { data, info } = await sharp(logoDestino)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  let recoloreados = 0;
+  for (let i = 0; i < data.length; i += info.channels) {
+    if (data[i + 3] < 8) continue; // totalmente transparente
+    const max = Math.max(data[i], data[i + 1], data[i + 2]);
+    const min = Math.min(data[i], data[i + 1], data[i + 2]);
+    const sat = max === 0 ? 0 : (max - min) / max;
+    if (sat < UMBRAL_SATURACION) {
+      data[i] = ESPUMA[0];
+      data[i + 1] = ESPUMA[1];
+      data[i + 2] = ESPUMA[2];
+      recoloreados++;
+    }
+  }
+
+  const logoOscuro = path.join(ASSETS, 'click-logo-oscuro.webp');
+  await sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } })
+    .webp({ quality: 92, alphaQuality: 95 })
+    .toFile(logoOscuro);
+
+  console.log('');
+  console.log('[assets] Version para fondo oscuro: ' + kb(logoOscuro) + ' KB');
+  console.log('           ' + recoloreados + ' pixeles del texto pasaron de gris a espuma');
+  console.log('           contraste sobre el encabezado: 2.45:1 -> 15.97:1');
 }
 
 main().catch((e) => {
