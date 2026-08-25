@@ -47,6 +47,11 @@ const LS_CLAVE = 'rifa-qr:registro:v2';
 // pero un veredicto instantaneo se siente arbitrario.
 const MS_CALCULO = 1400;
 
+// Cada cuanto se reintenta el sondeo mientras el backend no
+// responda. 15 s es suficiente para que el aviso desaparezca casi
+// enseguida tras un corte breve, sin castigar la red del evento.
+const MS_REINTENTO_SALUD = 15000;
+
 const RESPUESTAS_VACIAS = {
   q1_garantia: 0,
   q2_cartera_vencida: 0,
@@ -92,9 +97,35 @@ function App() {
   // Si no responde se avisa, pero se deja continuar: es preferible
   // que la persona llene el formulario y falle al final a que se
   // quede mirando una pantalla muerta.
+  //
+  // Mientras siga caido se reintenta, y el aviso desaparece solo en
+  // cuanto el backend vuelve. Sondear una sola vez al abrir tiene
+  // un problema serio en un evento: basta un parpadeo del WiFi
+  // justo en ese instante para que la persona cargue con un banner
+  // rojo toda la sesion aunque todo funcione, y hay quien abandona
+  // el registro al verlo. Con cientos de asistentes en la red
+  // compartida del recinto, eso le pasa a alguien seguro.
+  //
+  // Ya sano no se sigue sondeando: no tiene caso gastar red del
+  // evento repitiendo una consulta que ya salio bien.
   // ----------------------------------------------------------
   useEffect(() => {
-    healthCheck().then((ok) => setBackendCaido(!ok));
+    let montado = true;
+    let temporizador;
+
+    const sondear = async () => {
+      const ok = await healthCheck();
+      if (!montado) return;
+      setBackendCaido(!ok);
+      if (!ok) temporizador = setTimeout(sondear, MS_REINTENTO_SALUD);
+    };
+
+    sondear();
+
+    return () => {
+      montado = false;
+      clearTimeout(temporizador);
+    };
   }, []);
 
   // ----------------------------------------------------------
