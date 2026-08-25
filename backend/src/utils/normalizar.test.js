@@ -323,13 +323,14 @@ describe('normalizarTelefono', () => {
 describe('normalizarRegistro', () => {
   // Fixture valido reutilizable: cada test hace copia con spread
   const registroValido = {
-    nombre: '  irving   alejandro ',
-    apellido_pat: 'PEÑA DE LA TORRE',
-    apellido_mat: "o'connor",
+    nombre_completo: '  irving   alejandro peña de la torre ',
     empresa: 'tm sourcing',
-    puesto: 'desarrollador de sistemas',
     telefono: '+52 (55) 1234-5678',
     correo: ' Sistemas@TMSourcing.COM ',
+    monto_promedio: '2m_10m',
+    q1_garantia: 1,
+    q2_cartera_vencida: 2,
+    q3_recuperacion: 2,
     acepto_privacidad: true,
   };
 
@@ -337,15 +338,31 @@ describe('normalizarRegistro', () => {
     const resultado = normalizarRegistro({ ...registroValido });
 
     expect(resultado).toEqual({
-      nombre: 'Irving Alejandro',
-      apellido_pat: 'Peña de la Torre',
-      apellido_mat: "O'Connor",
+      nombre_completo: 'Irving Alejandro Peña de la Torre',
       empresa: 'Tm Sourcing',
-      puesto: 'Desarrollador de Sistemas',
       telefono: '5512345678',
       correo: 'sistemas@tmsourcing.com',
+      // La clave 2m_10m se resuelve a su etiqueta legible
+      monto_promedio: '$2 - $10 millones',
+      q1_garantia: 1,
+      q2_cartera_vencida: 2,
+      q3_recuperacion: 2,
+      // 1 + 2 + 2 = 5 -> Aguas Turbias
+      puntaje_total: 5,
+      nivel_exposicion: 'turbias',
       acepto_privacidad: true,
     });
+  });
+
+  it('recalcula el puntaje aunque el cliente mande otro', () => {
+    const resultado = normalizarRegistro({
+      ...registroValido,
+      puntaje_total: 99,
+      nivel_exposicion: 'safe',
+    });
+
+    expect(resultado.puntaje_total).toBe(5);
+    expect(resultado.nivel_exposicion).toBe('turbias');
   });
 
   // ----------------------------------------------------------
@@ -427,9 +444,9 @@ describe('normalizarRegistro', () => {
   // NOTA: un array pasa el filtro de body (typeof [] === 'object')
   // y falla despues en el primer campo. Este test documenta el
   // comportamiento REAL actual, no el ideal.
-  it('un array NO lanza body: cae hasta el campo nombre', () => {
+  it('un array NO lanza body: cae hasta el primer campo del formulario', () => {
     const err = capturar(() => normalizarRegistro([]));
-    expect(err).toMatchObject({ campo: 'nombre' });
+    expect(err).toMatchObject({ campo: 'nombre_completo' });
   });
 
   it('lanza con el campo correcto cuando falta un campo intermedio', () => {
@@ -443,24 +460,35 @@ describe('normalizarRegistro', () => {
     });
   });
 
-  it('lanza con campo apellido_mat si solo falta ese apellido', () => {
-    const sinApellidoMat = { ...registroValido };
-    delete sinApellidoMat.apellido_mat;
+  it('lanza con campo empresa si solo falta la empresa', () => {
+    const sinEmpresa = { ...registroValido };
+    delete sinEmpresa.empresa;
 
-    const err = capturar(() => normalizarRegistro(sinApellidoMat));
-    expect(err).toMatchObject({ campo: 'apellido_mat' });
+    const err = capturar(() => normalizarRegistro(sinEmpresa));
+    expect(err).toMatchObject({ campo: 'empresa' });
   });
 
-  it('reporta el PRIMER campo que falla segun el orden de construccion', () => {
-    // Orden: nombre -> apellido_pat -> apellido_mat -> empresa
-    //        -> puesto -> telefono -> correo
+  it('reporta el PRIMER campo que falla segun el orden de la pantalla', () => {
+    // Orden: nombre_completo -> empresa -> telefono -> correo
+    //        -> monto_promedio -> respuestas del quiz -> privacidad
     const err = capturar(() => normalizarRegistro({}));
-    expect(err).toMatchObject({ campo: 'nombre' });
+    expect(err).toMatchObject({ campo: 'nombre_completo' });
   });
 
-  it('con nombre valido pero el resto vacio, reporta apellido_pat', () => {
-    const err = capturar(() => normalizarRegistro({ nombre: 'Irving' }));
-    expect(err).toMatchObject({ campo: 'apellido_pat' });
+  it('con nombre valido pero el resto vacio, reporta empresa', () => {
+    const err = capturar(() =>
+      normalizarRegistro({ nombre_completo: 'Irving Alejandro' })
+    );
+    expect(err).toMatchObject({ campo: 'empresa' });
+  });
+
+  it('el monto se valida despues del correo y antes del quiz', () => {
+    const sinMonto = { ...registroValido };
+    delete sinMonto.monto_promedio;
+    delete sinMonto.q1_garantia;
+
+    const err = capturar(() => normalizarRegistro(sinMonto));
+    expect(err).toMatchObject({ campo: 'monto_promedio' });
   });
 
   it('con telefono y correo invalidos a la vez, reporta telefono primero', () => {
@@ -474,31 +502,49 @@ describe('normalizarRegistro', () => {
     expect(err).toMatchObject({ campo: 'telefono' });
   });
 
-  it('lanza si un campo de texto excede 150 caracteres', () => {
-    const nombreLargo = { ...registroValido, nombre: 'a'.repeat(151) };
+  it('empresa lanza si excede 150 caracteres', () => {
+    const empresaLarga = { ...registroValido, empresa: 'a'.repeat(151) };
 
-    const err = capturar(() => normalizarRegistro(nombreLargo));
+    const err = capturar(() => normalizarRegistro(empresaLarga));
     expect(err).toMatchObject({
-      campo: 'nombre',
-      mensaje: 'El campo nombre excede 150 caracteres.',
+      campo: 'empresa',
+      mensaje: 'El campo empresa excede 150 caracteres.',
     });
   });
 
-  it('acepta un campo de texto de exactamente 150 caracteres', () => {
-    // 150 chars sin espacios: una sola "palabra" capitalizada
-    const nombre150 = { ...registroValido, nombre: 'a'.repeat(150) };
+  it('empresa acepta exactamente 150 caracteres', () => {
+    const empresa150 = { ...registroValido, empresa: 'a'.repeat(150) };
 
-    const resultado = normalizarRegistro(nombre150);
-    expect(resultado.nombre).toBe('A' + 'a'.repeat(149));
+    const resultado = normalizarRegistro(empresa150);
+    expect(resultado.empresa).toBe('A' + 'a'.repeat(149));
   });
 
-  it('lanza campo nombre si el valor es un numero (trim lo vacia)', () => {
-    const nombreNumero = { ...registroValido, nombre: 123 };
+  // El nombre va en un solo campo, asi que su limite es mayor que el
+  // de un campo suelto: caben nombre y dos apellidos juntos.
+  it('nombre_completo acepta hasta 300 caracteres', () => {
+    const nombre300 = { ...registroValido, nombre_completo: 'a'.repeat(300) };
+
+    const resultado = normalizarRegistro(nombre300);
+    expect(resultado.nombre_completo).toBe('A' + 'a'.repeat(299));
+  });
+
+  it('nombre_completo lanza si excede 300 caracteres', () => {
+    const nombreLargo = { ...registroValido, nombre_completo: 'a'.repeat(301) };
+
+    const err = capturar(() => normalizarRegistro(nombreLargo));
+    expect(err).toMatchObject({
+      campo: 'nombre_completo',
+      mensaje: 'El campo nombre_completo excede 300 caracteres.',
+    });
+  });
+
+  it('lanza campo nombre_completo si el valor es un numero (trim lo vacia)', () => {
+    const nombreNumero = { ...registroValido, nombre_completo: 123 };
 
     const err = capturar(() => normalizarRegistro(nombreNumero));
     expect(err).toMatchObject({
-      campo: 'nombre',
-      mensaje: 'El campo nombre es obligatorio.',
+      campo: 'nombre_completo',
+      mensaje: 'El campo nombre_completo es obligatorio.',
     });
   });
 });

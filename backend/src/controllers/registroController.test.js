@@ -81,13 +81,15 @@ function crearResFalso() {
 // La normalizacion real debe limpiarlo.
 function bodyValido(extras = {}) {
   return {
-    nombre: '  irving   alejandro ',
-    apellido_pat: 'DE LA VEGA',
-    apellido_mat: 'garcía',
+    nombre_completo: '  irving   alejandro de la vega ',
     empresa: 'tmsourcing',
-    puesto: 'desarrollador senior',
     telefono: '+52 (55) 1234-5678',
     correo: '  Irving.Vega@Example.COM ',
+    monto_promedio: '500k_2m',
+    // Respuestas del Tiburometro: 2 + 3 + 4 = 9 puntos -> "abiertas"
+    q1_garantia: 2,
+    q2_cartera_vencida: 3,
+    q3_recuperacion: 4,
     acepto_privacidad: true,
     ...extras,
   };
@@ -196,19 +198,48 @@ describe('registrarParticipante - registro exitoso NO ganador', () => {
     expect(llamadaInsert).toBeDefined();
 
     const params = llamadaInsert[1];
-    // Orden de columnas: nombre, apellido_pat, apellido_mat,
-    // empresa, puesto, telefono, correo, ip_origen, acepto_privacidad
+    // Orden de columnas: nombre_completo, empresa, monto_promedio,
+    // telefono, correo, q1, q2, q3, puntaje_total, nivel_exposicion,
+    // ip_origen, acepto_privacidad
     expect(params).toEqual([
-      'Irving Alejandro',      // trim + colapso de espacios + title case
-      'De la Vega',            // particulas en minuscula salvo la primera
-      'García',                // respeta acentos
-      'Tmsourcing',            // todo en minusculas: no hay caja que respetar
-      'Desarrollador Senior',
-      '5512345678',            // solo digitos, sin lada 52
+      // trim + colapso de espacios + title case con particulas
+      'Irving Alejandro de la Vega',
+      'Tmsourcing',              // todo en minusculas: no hay caja que respetar
+      '$500 mil - $2 millones',  // etiqueta resuelta desde la clave 500k_2m
+      '5512345678',              // solo digitos, sin lada 52
       'irving.vega@example.com', // minusculas y sin espacios
-      '187.190.1.1',           // ip del request para auditoria
-      true,                    // constancia del aviso de privacidad
+      2, 3, 4,                   // respuestas del Tiburometro tal cual
+      9,                         // puntaje recalculado en el servidor
+      'abiertas',                // nivel derivado del puntaje
+      '187.190.1.1',             // ip del request para auditoria
+      true,                      // constancia del aviso de privacidad
     ]);
+  });
+
+  it('NUNCA confia en el puntaje ni el nivel que mande el cliente', async () => {
+    programarExecute(conexion);
+    const res = crearResFalso();
+
+    // Un POST manipulado que intenta declararse en zona segura pese a
+    // haber respondido lo peor en las tres preguntas.
+    await registrarParticipante(
+      crearReqFalso(
+        bodyValido({
+          q1_garantia: 4,
+          q2_cartera_vencida: 4,
+          q3_recuperacion: 4,
+          puntaje_total: 3,
+          nivel_exposicion: 'safe',
+        })
+      ),
+      res
+    );
+
+    const [llamadaInsert] = llamadasConSql(conexion, 'INSERT INTO participantes');
+    const params = llamadaInsert[1];
+    // Se guarda lo que calcula el servidor, no lo que mando el cliente
+    expect(params[8]).toBe(12);
+    expect(params[9]).toBe('sharks');
   });
 
   it('respeta la caja de marcas y siglas en empresa', async () => {
@@ -216,7 +247,12 @@ describe('registrarParticipante - registro exitoso NO ganador', () => {
     const res = crearResFalso();
 
     await registrarParticipante(
-      crearReqFalso(bodyValido({ empresa: 'TMSourcing', puesto: 'Director CLICK' })),
+      crearReqFalso(
+        bodyValido({
+          nombre_completo: 'Ana McAllister Rivera',
+          empresa: 'TMSourcing',
+        })
+      ),
       res
     );
 
@@ -224,8 +260,8 @@ describe('registrarParticipante - registro exitoso NO ganador', () => {
     const params = llamadaInsert[1];
     // Sin esto, la lista de contactos del evento llegaba degradada:
     // "TMSourcing" se guardaba como "Tmsourcing".
-    expect(params[3]).toBe('TMSourcing');
-    expect(params[4]).toBe('Director CLICK');
+    expect(params[0]).toBe('Ana McAllister Rivera');
+    expect(params[1]).toBe('TMSourcing');
   });
 
   it('guarda ip_origen como null si el request no trae ip', async () => {
@@ -236,7 +272,8 @@ describe('registrarParticipante - registro exitoso NO ganador', () => {
     await registrarParticipante({ body: bodyValido() }, res);
 
     const [llamadaInsert] = llamadasConSql(conexion, 'INSERT INTO participantes');
-    expect(llamadaInsert[1][7]).toBeNull();
+    // ip_origen es el penultimo parametro; acepto_privacidad va al final
+    expect(llamadaInsert[1][10]).toBeNull();
   });
 });
 
@@ -370,9 +407,9 @@ describe('registrarParticipante - validacion de entrada', () => {
     expect(pool.getConnection).not.toHaveBeenCalled();
   });
 
-  it('responde 400 con campo nombre si falta el nombre', async () => {
+  it('responde 400 con campo nombre_completo si falta el nombre', async () => {
     const res = crearResFalso();
-    const req = crearReqFalso(bodyValido({ nombre: '   ' }));
+    const req = crearReqFalso(bodyValido({ nombre_completo: '   ' }));
 
     await registrarParticipante(req, res);
 
@@ -381,9 +418,38 @@ describe('registrarParticipante - validacion de entrada', () => {
       expect.objectContaining({
         ok: false,
         error: 'datos_invalidos',
-        campo: 'nombre',
+        campo: 'nombre_completo',
       })
     );
+    expect(pool.getConnection).not.toHaveBeenCalled();
+  });
+
+  it('responde 400 si el monto no esta en el catalogo', async () => {
+    const res = crearResFalso();
+    // Un POST directo intentando meter texto arbitrario en la columna
+    const req = crearReqFalso(bodyValido({ monto_promedio: 'lo que yo quiera' }));
+
+    await registrarParticipante(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ campo: 'monto_promedio' })
+    );
+    expect(pool.getConnection).not.toHaveBeenCalled();
+  });
+
+  it('responde 400 si una respuesta del Tiburometro esta fuera de rango', async () => {
+    for (const malo of [0, 5, -1, 2.5, 'dos', null]) {
+      const res = crearResFalso();
+      await registrarParticipante(
+        crearReqFalso(bodyValido({ q2_cartera_vencida: malo })),
+        res
+      );
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ campo: 'q2_cartera_vencida' })
+      );
+    }
     expect(pool.getConnection).not.toHaveBeenCalled();
   });
 

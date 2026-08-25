@@ -9,6 +9,7 @@
 // ============================================================
 
 import validator from 'validator';
+import { etiquetaMonto, calcularDiagnostico } from './tiburometro.js';
 
 // ------------------------------------------------------------
 // Particulas que en apellidos compuestos del espanol van en
@@ -193,6 +194,29 @@ function normalizarTelefono(telefono) {
 }
 
 // ------------------------------------------------------------
+// normalizarMonto(): valida la clave del monto elegido y devuelve
+// la etiqueta legible que se guarda en la base.
+//
+// Es validacion por LISTA BLANCA, no limpieza de texto libre: la
+// columna solo puede terminar con uno de los cuatro valores del
+// catalogo, aunque alguien llame al endpoint por su cuenta. Si se
+// aceptara texto arbitrario, el export que usa el equipo comercial
+// quedaria con basura imposible de agrupar.
+// ------------------------------------------------------------
+function normalizarMonto(valor) {
+  const etiqueta = etiquetaMonto(trim(valor));
+
+  if (!etiqueta) {
+    throw {
+      campo: 'monto_promedio',
+      mensaje: 'Selecciona el monto promedio de tus créditos.',
+    };
+  }
+
+  return etiqueta;
+}
+
+// ------------------------------------------------------------
 // normalizarTextoConTitleCase(): wrapper que valida obligatoriedad
 // y aplica title case en espanol. Se usa para nombre, apellidos,
 // empresa y puesto.
@@ -214,6 +238,32 @@ function normalizarTextoConTitleCase(valor, campo, maxLength = 150) {
   return titleCaseEspanol(limpio);
 }
 
+// ------------------------------------------------------------
+// normalizarRespuestaQuiz(): valida una respuesta del Tiburometro.
+//
+// Cada respuesta es la POSICION de la opcion elegida, del 1 al 4,
+// y esa posicion es tambien su puntaje.
+//
+// Se acepta tanto numero como cadena numerica ("3"), porque un
+// formulario puede mandar cualquiera de los dos y rechazar el
+// segundo seria pedanteria sin beneficio. Lo que si se exige es
+// que el resultado sea un entero dentro del rango: cualquier otra
+// cosa corrompe el diagnostico.
+// ------------------------------------------------------------
+function normalizarRespuestaQuiz(valor, campo) {
+  if (valor === null || valor === undefined || valor === '') {
+    throw { campo, mensaje: 'Falta responder una pregunta del diagnóstico.' };
+  }
+
+  const numero = Number(valor);
+
+  if (!Number.isInteger(numero) || numero < 1 || numero > 4) {
+    throw { campo, mensaje: 'Respuesta no válida en el diagnóstico.' };
+  }
+
+  return numero;
+}
+
 // ============================================================
 // normalizarRegistro(): funcion publica principal.
 //
@@ -223,6 +273,10 @@ function normalizarTextoConTitleCase(valor, campo, maxLength = 150) {
 //
 // Lanza un objeto { campo, mensaje } si algun campo falla.
 // El controller captura ese error y lo devuelve como 400.
+//
+// El orden de validacion sigue el orden de la pantalla, para que
+// el primer error que vea la persona sea el del campo que tiene
+// mas arriba y no uno de mas abajo.
 // ============================================================
 export function normalizarRegistro(datosCrudos) {
   if (!datosCrudos || typeof datosCrudos !== 'object') {
@@ -230,20 +284,50 @@ export function normalizarRegistro(datosCrudos) {
   }
 
   const normalizado = {
-    nombre: normalizarTextoConTitleCase(datosCrudos.nombre, 'nombre'),
-    apellido_pat: normalizarTextoConTitleCase(
-      datosCrudos.apellido_pat,
-      'apellido_pat'
-    ),
-    apellido_mat: normalizarTextoConTitleCase(
-      datosCrudos.apellido_mat,
-      'apellido_mat'
+    // El formulario captura el nombre en un solo campo. Se permite
+    // hasta 300 caracteres porque aqui caben nombre y dos apellidos
+    // juntos, a diferencia de los 150 de un campo suelto.
+    nombre_completo: normalizarTextoConTitleCase(
+      datosCrudos.nombre_completo,
+      'nombre_completo',
+      300
     ),
     empresa: normalizarTextoConTitleCase(datosCrudos.empresa, 'empresa'),
-    puesto: normalizarTextoConTitleCase(datosCrudos.puesto, 'puesto'),
     telefono: normalizarTelefono(datosCrudos.telefono),
     correo: normalizarCorreo(datosCrudos.correo),
+    monto_promedio: normalizarMonto(datosCrudos.monto_promedio),
   };
+
+  // ----------------------------------------------------------
+  // Respuestas del Tiburometro
+  // ----------------------------------------------------------
+  // Vienen de las pantallas anteriores al formulario. Si faltan,
+  // es que alguien salto el flujo o llamo al endpoint directo.
+  // ----------------------------------------------------------
+  const respuestas = {
+    q1_garantia: normalizarRespuestaQuiz(datosCrudos.q1_garantia, 'q1_garantia'),
+    q2_cartera_vencida: normalizarRespuestaQuiz(
+      datosCrudos.q2_cartera_vencida,
+      'q2_cartera_vencida'
+    ),
+    q3_recuperacion: normalizarRespuestaQuiz(
+      datosCrudos.q3_recuperacion,
+      'q3_recuperacion'
+    ),
+  };
+
+  Object.assign(normalizado, respuestas);
+
+  // ----------------------------------------------------------
+  // Puntaje y nivel: SIEMPRE se recalculan aqui.
+  // ----------------------------------------------------------
+  // Aunque el navegador los mande, se ignoran. El diagnostico se
+  // guarda como dato comercial y se envia por correo, asi que no
+  // puede depender de lo que diga el cliente.
+  // ----------------------------------------------------------
+  const diagnostico = calcularDiagnostico(respuestas);
+  normalizado.puntaje_total = diagnostico.puntaje;
+  normalizado.nivel_exposicion = diagnostico.nivel;
 
   // ----------------------------------------------------------
   // Consentimiento del aviso de privacidad
@@ -275,4 +359,6 @@ export const _internos = {
   titleCaseEspanol,
   normalizarCorreo,
   normalizarTelefono,
+  normalizarMonto,
+  normalizarRespuestaQuiz,
 };

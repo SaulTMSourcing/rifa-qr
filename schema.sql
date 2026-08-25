@@ -34,14 +34,41 @@
 -- incluso bajo registros concurrentes.
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS participantes (
-  id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  nombre          VARCHAR(150)  NOT NULL,
-  apellido_pat    VARCHAR(150)  NOT NULL,
-  apellido_mat    VARCHAR(150)  NOT NULL,
+  id              INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+
+  -- ---------------------------------------------------------------
+  -- Datos del formulario
+  -- ---------------------------------------------------------------
+  -- El nombre se captura en UN solo campo, no separado en nombre y
+  -- dos apellidos: por eso 300 y no 150 de ancho.
+  nombre_completo VARCHAR(300)  NOT NULL,
   empresa         VARCHAR(150)  NOT NULL,
-  puesto          VARCHAR(150)  NOT NULL,
+  -- Texto legible ya resuelto por el backend a partir de una lista
+  -- blanca de 4 claves. Nunca texto libre del cliente.
+  monto_promedio  VARCHAR(40)   NOT NULL,
   telefono        VARCHAR(20)   NOT NULL,
   correo          VARCHAR(180)  NOT NULL,
+
+  -- ---------------------------------------------------------------
+  -- Diagnostico del Tiburometro
+  -- ---------------------------------------------------------------
+  -- Cada respuesta es la posicion de la opcion elegida (1 a 4), que
+  -- es tambien su puntaje. Se guardan una por una, y no solo el
+  -- total, porque son la calificacion comercial del prospecto.
+  --
+  -- puntaje_total y nivel_exposicion los recalcula SIEMPRE el
+  -- servidor a partir de las tres respuestas; lo que mande el
+  -- navegador se ignora.
+  q1_garantia        TINYINT UNSIGNED NULL,
+  q2_cartera_vencida TINYINT UNSIGNED NULL,
+  q3_recuperacion    TINYINT UNSIGNED NULL,
+  puntaje_total      TINYINT UNSIGNED NULL,
+  -- safe | turbias | abiertas | sharks
+  nivel_exposicion   VARCHAR(20)      NULL,
+
+  -- ---------------------------------------------------------------
+  -- Control
+  -- ---------------------------------------------------------------
   es_ganador      BOOLEAN       NOT NULL DEFAULT FALSE,
   fecha_registro  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   ip_origen       VARCHAR(45)   NULL,
@@ -53,7 +80,10 @@ CREATE TABLE IF NOT EXISTS participantes (
   PRIMARY KEY (id),
   UNIQUE KEY uk_participantes_correo (correo),
   INDEX idx_participantes_fecha (fecha_registro),
-  INDEX idx_participantes_ganador (es_ganador)
+  INDEX idx_participantes_ganador (es_ganador),
+  -- El equipo comercial agrupa por nivel de exposicion al dar
+  -- seguimiento despues del evento.
+  INDEX idx_participantes_nivel (nivel_exposicion)
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci;

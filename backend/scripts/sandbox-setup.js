@@ -25,6 +25,7 @@ import dotenv from 'dotenv';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { MONTOS, calcularDiagnostico } from '../src/utils/tiburometro.js';
 
 const aqui = path.dirname(fileURLToPath(import.meta.url));
 const raizBackend = path.resolve(aqui, '..');
@@ -94,29 +95,58 @@ const MATERNOS = ['Pena', 'Vargas', 'Mendoza', 'Castillo', 'Ortiz', 'Guerrero',
   'Navarro', 'Rojas', 'Campos', 'Delgado', 'Ibarra', 'Solis'];
 const EMPRESAS = ['TMSourcing', 'Lextech', 'CLICK Seguridad Juridica', 'Financiera del Norte',
   'SOFOM Progreso', 'Credito Regional', 'Grupo Aval', 'Fintech MX'];
-const PUESTOS = ['Director Comercial', 'Analista de Credito', 'Gerente de Sucursal',
-  'Subdirector', 'Contador', 'Ejecutivo de Cuenta', 'Socio', 'Coordinador de Riesgos'];
+
+const CLAVES_MONTO = Object.keys(MONTOS);
 
 // Fecha base fija: los datos deben ser reproducibles entre corridas.
 const INICIO = new Date('2026-07-27T09:00:00Z');
 
 function participante(id, indice) {
-  const nombre = NOMBRES[indice % NOMBRES.length];
-  const pat = PATERNOS[indice % PATERNOS.length];
-  const mat = MATERNOS[(indice * 3) % MATERNOS.length];
+  // El formulario captura el nombre en un solo campo; aqui se arma
+  // igual, a partir de las listas, para que parezca real.
+  const nombreCompleto = [
+    NOMBRES[indice % NOMBRES.length],
+    PATERNOS[indice % PATERNOS.length],
+    MATERNOS[(indice * 3) % MATERNOS.length],
+  ].join(' ');
+
   // Registros repartidos a lo largo de ~4 horas, para que la
   // consulta de ritmo por hora tenga algo que mostrar.
   const fecha = new Date(INICIO.getTime() + indice * 4 * 60 * 1000);
+
+  // Las tres respuestas avanzan como los digitos de un contador en
+  // base 4: q1 cambia en cada registro, q2 cada 4, q3 cada 16. Asi
+  // los primeros 64 participantes recorren TODAS las combinaciones
+  // posibles sin repetir, y los cuatro niveles del Tiburometro
+  // quedan representados en los datos de prueba.
+  //
+  // Un intento previo usaba multiplicadores (indice*3, indice*7) y
+  // fallaba: 7 y 3 son congruentes modulo 4, asi que q3 salia
+  // siempre igual a q2 y solo se generaban 4 combinaciones, dejando
+  // dos niveles sin ningun caso.
+  const respuestas = {
+    q1_garantia: (indice % 4) + 1,
+    q2_cartera_vencida: (Math.floor(indice / 4) % 4) + 1,
+    q3_recuperacion: (Math.floor(indice / 16) % 4) + 1,
+  };
+
+  // Se usa la MISMA funcion que el backend en produccion, para que
+  // los datos sembrados no puedan contradecir la logica real.
+  const diagnostico = calcularDiagnostico(respuestas);
+
   return [
     id,
-    nombre,
-    pat,
-    mat,
+    nombreCompleto,
     EMPRESAS[indice % EMPRESAS.length],
-    PUESTOS[indice % PUESTOS.length],
+    MONTOS[CLAVES_MONTO[indice % CLAVES_MONTO.length]],
     // Telefono de 10 digitos, formato Mexico
     '55' + String(10000000 + indice * 137).slice(0, 8),
     'prueba' + id + '@ejemplo-sandbox.mx',
+    respuestas.q1_garantia,
+    respuestas.q2_cartera_vencida,
+    respuestas.q3_recuperacion,
+    diagnostico.puntaje,
+    diagnostico.nivel,
     GANADORES_RECLAMADOS.includes(id) ? 1 : 0,
     fecha.toISOString().slice(0, 19).replace('T', ' '),
     '187.190.0.' + (indice % 250 + 1),
@@ -180,8 +210,10 @@ async function main() {
     indice++;
   }
   await conn.query(
-    'INSERT INTO participantes (id, nombre, apellido_pat, apellido_mat, empresa, puesto,' +
-    ' telefono, correo, es_ganador, fecha_registro, ip_origen, acepto_privacidad) VALUES ?',
+    'INSERT INTO participantes (id, nombre_completo, empresa, monto_promedio,' +
+    ' telefono, correo, q1_garantia, q2_cartera_vencida, q3_recuperacion,' +
+    ' puntaje_total, nivel_exposicion, es_ganador, fecha_registro, ip_origen,' +
+    ' acepto_privacidad) VALUES ?',
     [filas]
   );
   console.log('[sandbox] ' + filas.length + ' participantes sembrados (IDs ' +

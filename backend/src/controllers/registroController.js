@@ -62,17 +62,28 @@ export async function registrarParticipante(req, res) {
     // ------------------------------------------------------
     const [resultadoInsert] = await connection.execute(
       `INSERT INTO participantes
-         (nombre, apellido_pat, apellido_mat, empresa, puesto,
-          telefono, correo, ip_origen, acepto_privacidad)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (nombre_completo, empresa, monto_promedio, telefono, correo,
+          q1_garantia, q2_cartera_vencida, q3_recuperacion,
+          puntaje_total, nivel_exposicion,
+          ip_origen, acepto_privacidad)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        datos.nombre,
-        datos.apellido_pat,
-        datos.apellido_mat,
+        datos.nombre_completo,
         datos.empresa,
-        datos.puesto,
+        datos.monto_promedio,
         datos.telefono,
         datos.correo,
+        // Respuestas del Tiburometro. Se guardan una por una, no
+        // solo el puntaje, porque son la calificacion comercial del
+        // prospecto: dicen que garantia usa, cuanta cartera vencida
+        // tiene y cuanto tarda en recuperar.
+        datos.q1_garantia,
+        datos.q2_cartera_vencida,
+        datos.q3_recuperacion,
+        // Ambos los recalculo normalizarRegistro en el servidor;
+        // lo que haya mandado el navegador se ignoro.
+        datos.puntaje_total,
+        datos.nivel_exposicion,
         ipOrigen,
         // Constancia del consentimiento. normalizarRegistro ya
         // rechazo el registro si no venia aceptado, asi que aqui
