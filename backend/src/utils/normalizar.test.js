@@ -354,6 +354,49 @@ describe('normalizarRegistro', () => {
     });
   });
 
+  // ----------------------------------------------------------
+  // Caja del nombre vs caja de la empresa
+  // ----------------------------------------------------------
+  // Son campos con reglas distintas a proposito: en una empresa una
+  // palabra en caja alta suele ser una sigla, en un nombre suele ser
+  // Bloq Mayus a medias.
+  // ----------------------------------------------------------
+  describe('caja del nombre', () => {
+    it('normaliza una palabra en caja alta dentro del nombre', () => {
+      const r = normalizarRegistro({
+        ...registroValido,
+        nombre_completo: 'maría FERNANDA de la torre',
+      });
+      expect(r.nombre_completo).toBe('María Fernanda de la Torre');
+    });
+
+    it('normaliza el nombre completo en caja alta', () => {
+      const r = normalizarRegistro({
+        ...registroValido,
+        nombre_completo: 'JOSÉ ANTONIO PEÑA MUÑOZ',
+      });
+      expect(r.nombre_completo).toBe('José Antonio Peña Muñoz');
+    });
+
+    it('sigue armando apostrofes y guiones en el nombre', () => {
+      const r = normalizarRegistro({
+        ...registroValido,
+        nombre_completo: "maría o'connor saint-pierre",
+      });
+      expect(r.nombre_completo).toBe("María O'Connor Saint-Pierre");
+    });
+
+    it('la empresa SI conserva sus siglas, a diferencia del nombre', () => {
+      const r = normalizarRegistro({
+        ...registroValido,
+        nombre_completo: 'ana LUCIA reyes',
+        empresa: 'Grupo BBVA',
+      });
+      expect(r.nombre_completo).toBe('Ana Lucia Reyes');
+      expect(r.empresa).toBe('Grupo BBVA');
+    });
+  });
+
   it('recalcula el puntaje aunque el cliente mande otro', () => {
     const resultado = normalizarRegistro({
       ...registroValido,

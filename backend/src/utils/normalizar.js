@@ -100,8 +100,20 @@ function tieneMayusculasInternas(palabra) {
 //   en el caso de Bloq Mayus y queda "Click". No hay forma de
 //   distinguirla de un nombre mal escrito, y equivocarse hacia el
 //   lado de normalizar molesta menos.
+//
+// OPCION respetarSiglas
+//   Solo tiene sentido en campos donde de verdad aparecen siglas y
+//   marcas, es decir empresa. En el nombre de una persona hay que
+//   apagarla: quien escribe "María FERNANDA de la Torre" trae el
+//   Bloq Mayus a medias, no una sigla, y preservar esa palabra deja
+//   el nombre gritando en la pantalla del ganador y en el correo.
+//
+//   Apagarla no rompe "O'Connor" ni "Saint-Pierre": esos los arma
+//   capitalizarPalabra por sus separadores, no esta regla. Lo unico
+//   que se pierde son apellidos tipo "McAllister", mucho menos
+//   frecuentes que el Bloq Mayus a medias.
 // ------------------------------------------------------------
-function titleCaseEspanol(texto) {
+function titleCaseEspanol(texto, { respetarSiglas = true } = {}) {
   const limpio = trim(texto);
   if (!limpio) return '';
 
@@ -114,7 +126,7 @@ function titleCaseEspanol(texto) {
       const palabraLower = palabra.toLocaleLowerCase('es-MX');
 
       // Capitalizacion deliberada: respetarla tal cual
-      if (!todoEnMayusculas && tieneMayusculasInternas(palabra)) {
+      if (respetarSiglas && !todoEnMayusculas && tieneMayusculasInternas(palabra)) {
         return palabra;
       }
 
@@ -221,7 +233,7 @@ function normalizarMonto(valor) {
 // y aplica title case en espanol. Se usa para nombre, apellidos,
 // empresa y puesto.
 // ------------------------------------------------------------
-function normalizarTextoConTitleCase(valor, campo, maxLength = 150) {
+function normalizarTextoConTitleCase(valor, campo, maxLength = 150, opciones = {}) {
   const limpio = trim(valor);
 
   if (!limpio) {
@@ -235,7 +247,7 @@ function normalizarTextoConTitleCase(valor, campo, maxLength = 150) {
     };
   }
 
-  return titleCaseEspanol(limpio);
+  return titleCaseEspanol(limpio, opciones);
 }
 
 // ------------------------------------------------------------
@@ -287,10 +299,15 @@ export function normalizarRegistro(datosCrudos) {
     // El formulario captura el nombre en un solo campo. Se permite
     // hasta 300 caracteres porque aqui caben nombre y dos apellidos
     // juntos, a diferencia de los 150 de un campo suelto.
+    //
+    // respetarSiglas apagado: en un nombre, una palabra en caja alta
+    // es Bloq Mayus a medias, no una sigla. Ver la nota larga en
+    // titleCaseEspanol.
     nombre_completo: normalizarTextoConTitleCase(
       datosCrudos.nombre_completo,
       'nombre_completo',
-      300
+      300,
+      { respetarSiglas: false }
     ),
     empresa: normalizarTextoConTitleCase(datosCrudos.empresa, 'empresa'),
     telefono: normalizarTelefono(datosCrudos.telefono),

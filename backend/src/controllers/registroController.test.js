@@ -242,14 +242,14 @@ describe('registrarParticipante - registro exitoso NO ganador', () => {
     expect(params[9]).toBe('sharks');
   });
 
-  it('respeta la caja de marcas y siglas en empresa', async () => {
+  it('respeta la caja en empresa pero NO en el nombre', async () => {
     programarExecute(conexion);
     const res = crearResFalso();
 
     await registrarParticipante(
       crearReqFalso(
         bodyValido({
-          nombre_completo: 'Ana McAllister Rivera',
+          nombre_completo: 'ana LUCIA rivera',
           empresa: 'TMSourcing',
         })
       ),
@@ -258,9 +258,15 @@ describe('registrarParticipante - registro exitoso NO ganador', () => {
 
     const [llamadaInsert] = llamadasConSql(conexion, 'INSERT INTO participantes');
     const params = llamadaInsert[1];
-    // Sin esto, la lista de contactos del evento llegaba degradada:
-    // "TMSourcing" se guardaba como "Tmsourcing".
-    expect(params[0]).toBe('Ana McAllister Rivera');
+
+    // En el nombre, una palabra en caja alta es Bloq Mayus a medias:
+    // se normaliza para que el ganador no aparezca gritando en
+    // pantalla ni en el correo.
+    expect(params[0]).toBe('Ana Lucia Rivera');
+
+    // En la empresa si se conserva: sin esto, la lista de contactos
+    // del evento llegaba degradada y "TMSourcing" se guardaba como
+    // "Tmsourcing".
     expect(params[1]).toBe('TMSourcing');
   });
 
