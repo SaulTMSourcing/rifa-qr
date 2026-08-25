@@ -150,6 +150,12 @@ export async function registrarParticipante(req, res) {
     return res.status(201).json({
       ok: true,
       numeroRegistro,
+      // Se devuelve el nombre YA NORMALIZADO para que la pantalla
+      // muestre lo mismo que quedo guardado. Sin esto el frontend
+      // pintaba el texto crudo del formulario, y el personal del
+      // stand leia "ana sofía DEL VALLE ibarra" en vez de
+      // "Ana Sofía del Valle Ibarra" al entregar el premio.
+      nombreCompleto: datos.nombre_completo,
       esGanador,
       premio: esGanador ? premio : null,
       mensaje: esGanador

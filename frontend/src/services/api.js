@@ -109,6 +109,9 @@ export async function registrarParticipante(datos) {
   if (response.ok && body.ok === true) {
     return {
       numeroRegistro: body.numeroRegistro,
+      // Viene normalizado por el backend: es lo que quedo en la base
+      // y lo que debe verse en pantalla.
+      nombreCompleto: body.nombreCompleto,
       esGanador: body.esGanador,
       premio: body.premio,
       mensaje: body.mensaje,

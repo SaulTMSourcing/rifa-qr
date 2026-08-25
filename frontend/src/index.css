@@ -1,31 +1,14 @@
 /* ============================================================
    frontend/src/index.css
    ------------------------------------------------------------
-   Punto de entrada de estilos. Contiene:
-     1. Import de Inter desde Google Fonts
-     2. Directivas de Tailwind (base, components, utilities)
-     3. Defaults globales: tipografia, antialiasing, color base
+   Punto de entrada de estilos.
+
+   Tailwind cubre la maquetacion y el sistema de color. Aqui vive
+   lo que no cabe en utilidades: la atmosfera del oceano, el
+   tiburon y el medidor, que son el sello de la dinamica.
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-
-/* ─── Organic Loader 01 — dos blobs en órbita ─── */
-@keyframes organicOrbitA {
-  0%   { transform: translate(-34px, -34px) scale(1);    }
-  25%  { transform: translate( 34px, -34px) scale(1.05); }
-  50%  { transform: translate( 34px,  34px) scale(1);    }
-  75%  { transform: translate(-34px,  34px) scale(0.95); }
-  100% { transform: translate(-34px, -34px) scale(1);    }
-}
-@keyframes organicOrbitB {
-  0%   { transform: translate( 34px,  34px) scale(1);    }
-  25%  { transform: translate(-34px,  34px) scale(0.95); }
-  50%  { transform: translate(-34px, -34px) scale(1);    }
-  75%  { transform: translate( 34px, -34px) scale(1.05); }
-  100% { transform: translate( 34px,  34px) scale(1);    }
-}
-.organic-blob-a { animation: organicOrbitA 2.4s ease-in-out infinite; }
-.organic-blob-b { animation: organicOrbitB 2.4s ease-in-out infinite; }
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -33,21 +16,178 @@
 
 @layer base {
   html {
-    /* Mejor renderizado de Inter en pantallas comunes */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    /* El fondo se pinta tambien en html para que el rebote de
+       scroll en iOS no descubra una franja blanca. */
+    background-color: theme('colors.abismo.900');
   }
 
   body {
-    @apply font-sans text-ink min-h-screen;
-    background: linear-gradient(160deg, #fff4eb 0%, #f3f4f6 45%, #f3f4f6 100%);
-    background-attachment: fixed;
+    @apply font-sans text-espuma antialiased;
+    background-color: theme('colors.abismo.800');
+    min-height: 100dvh;
   }
 
-  /* Inputs por defecto: que respeten la tipografia y no usen
-     los estilos del navegador */
-  input, button, textarea, select {
-    @apply font-sans;
+  /* El foco se ve sobre fondo oscuro y respeta el acento */
+  :focus-visible {
+    outline: 2px solid theme('colors.click.orange');
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* La barra de scroll blanca rompia la atmosfera en Windows */
+  ::-webkit-scrollbar { width: 0; height: 0; }
+  * { scrollbar-width: none; }
+}
+
+@layer components {
+  /* ----------------------------------------------------------
+     Superficie principal
+     ----------------------------------------------------------
+     Un degradado vertical muy sutil da la sensacion de mirar
+     hacia el fondo del mar: mas claro arriba, oscuro abajo.
+     ---------------------------------------------------------- */
+  .superficie {
+    background:
+      radial-gradient(120% 80% at 50% 0%, rgba(245,111,4,.07) 0%, transparent 55%),
+      linear-gradient(180deg, theme('colors.abismo.700') 0%, theme('colors.abismo.800') 58%);
+  }
+
+  /* ----------------------------------------------------------
+     Grano
+     ----------------------------------------------------------
+     Una capa de ruido muy tenue evita que los degradados se vean
+     "bandeados" en pantallas de celular, que es donde se abre
+     esto. Va en un pseudoelemento para no tocar el contenido.
+     ---------------------------------------------------------- */
+  .con-grano::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: .035;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ----------------------------------------------------------
+     Opcion de respuesta
+     ---------------------------------------------------------- */
+  .opcion {
+    @apply w-full text-left flex items-center justify-between gap-3
+           rounded-xl border px-4 py-[15px] text-[15px] font-medium
+           transition-colors duration-150;
+    background-color: theme('colors.abismo.600');
+    border-color: theme('colors.abismo.500');
+    color: theme('colors.espuma');
+  }
+  .opcion:hover { border-color: theme('colors.click.orange'); }
+  .opcion[data-elegida='true'] {
+    border-color: theme('colors.click.orange');
+    background-color: #241b12;
+  }
+
+  /* ----------------------------------------------------------
+     Boton principal
+     ---------------------------------------------------------- */
+  .boton {
+    @apply w-full flex items-center justify-center gap-2 rounded-xl
+           font-display font-bold text-base px-5 py-4
+           transition-all duration-150 active:scale-[.985];
+    background-color: theme('colors.click.orange');
+    color: theme('colors.abismo.900');
+  }
+  .boton:hover:not(:disabled) { background-color: theme('colors.click.orange-hi'); }
+  .boton:disabled {
+    background-color: theme('colors.abismo.600');
+    color: theme('colors.bruma2');
+    cursor: not-allowed;
+  }
+  .boton-fantasma {
+    background-color: transparent;
+    border: 1px solid theme('colors.abismo.500');
+    color: theme('colors.espuma');
+  }
+  .boton-fantasma:hover:not(:disabled) {
+    background-color: transparent;
+    border-color: theme('colors.click.orange');
+    color: theme('colors.click.orange');
+  }
+
+  /* ----------------------------------------------------------
+     Campo de formulario
+     ---------------------------------------------------------- */
+  .campo {
+    @apply w-full rounded-lg border px-[13px] py-3 text-[15px]
+           transition-colors duration-150;
+    background-color: theme('colors.abismo.600');
+    border-color: theme('colors.abismo.500');
+    color: theme('colors.espuma');
+  }
+  .campo::placeholder { color: theme('colors.bruma2'); }
+  .campo:focus {
+    border-color: theme('colors.click.orange');
+    outline-offset: 1px;
+  }
+  .campo[aria-invalid='true'] { border-color: theme('colors.zona.sharks'); }
+
+  /* En iOS, un select nativo se ve gris claro y rompe el tema */
+  select.campo {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a93a0' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+}
+
+/* ============================================================
+   TIBUROMETRO
+   ============================================================ */
+
+/* El agua: bandas verticales tenues que sugieren columnas de luz */
+.agua::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    90deg, transparent 0 17px, rgba(255,255,255,.022) 17px 18px
+  );
+}
+
+/* Barrido lento de corriente, para que el agua no se sienta muerta */
+.corriente {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg, transparent 0%, rgba(255,255,255,.05) 45%, transparent 90%
+  );
+  width: 60%;
+}
+
+/* Greca inferior: guino grafico de la marca */
+.greca {
+  background: repeating-linear-gradient(
+    45deg, theme('colors.click.orange') 0 4px, transparent 4px 8px
+  );
+}
+
+/* El tiburon se desplaza por la pista segun el puntaje */
+.tiburon {
+  transition: left 1.15s cubic-bezier(.22,.9,.3,1);
+  filter: drop-shadow(0 6px 14px rgba(0,0,0,.55));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tiburon,
+  .animate-nadar,
+  .animate-sonar,
+  .animate-pulso,
+  .animate-corriente,
+  .animate-entrar {
+    animation: none !important;
+    transition: none !important;
   }
 }

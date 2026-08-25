@@ -1,0 +1,82 @@
+// ============================================================
+// frontend/src/components/Marco.jsx
+// ------------------------------------------------------------
+// El kiosco: encabezado con el logo, barra de avance, area de
+// pantallas y el Tiburometro al pie.
+//
+// Se mantiene fijo mientras las pantallas cambian dentro, para
+// que el tiburon no se reinicie en cada transicion: su avance a
+// lo largo del cuestionario es parte de la experiencia.
+// ============================================================
+
+import logoUrl from '../assets/click-logo.webp';
+import Tiburometro from './Tiburometro';
+
+function Marco({
+  children,
+  paso = 0,          // 0 = sin barra; 1..3 = pregunta en curso
+  onReiniciar,
+  posicionTiburon,
+  tiburonActivo,
+  nivel,
+}) {
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center p-3 sm:p-7">
+      <div
+        className="con-grano superficie relative flex h-[min(860px,96dvh)] w-full max-w-[430px]
+                   flex-col overflow-hidden rounded-[26px] border border-abismo-600
+                   shadow-[0_30px_80px_-20px_rgba(0,0,0,.75)]"
+      >
+        {/* ─── Encabezado ─── */}
+        <header className="flex shrink-0 items-center gap-3 px-5 pb-2.5 pt-4">
+          <img
+            src={logoUrl}
+            alt="CLICK Seguridad Jurídica"
+            className="h-8 w-auto select-none"
+            draggable="false"
+          />
+
+          {onReiniciar && (
+            <button
+              type="button"
+              onClick={onReiniciar}
+              className="ml-auto rounded-full border border-abismo-500 px-2.5 py-1.5
+                         font-mono text-[10px] uppercase tracking-[.05em] text-bruma
+                         transition-colors hover:border-bruma hover:text-espuma"
+            >
+              Reiniciar
+            </button>
+          )}
+        </header>
+
+        {/* ─── Avance del cuestionario ─── */}
+        {paso > 0 && (
+          <div className="flex shrink-0 gap-1.5 px-5 pb-3.5" aria-hidden="true">
+            {[1, 2, 3].map((n) => (
+              <span key={n} className="relative h-1 flex-1 overflow-hidden rounded-sm bg-abismo-500">
+                <span
+                  className="absolute inset-0 origin-left bg-click-orange transition-transform duration-500"
+                  style={{ transform: `scaleX(${n <= paso ? 1 : 0})` }}
+                />
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* ─── Pantalla activa ─── */}
+        <main className="min-h-0 flex-1 overflow-y-auto px-6 pb-5 pt-1">
+          {children}
+        </main>
+
+        {/* ─── Tiburometro ─── */}
+        <Tiburometro
+          posicion={posicionTiburon}
+          activo={tiburonActivo}
+          nivel={nivel}
+        />
+      </div>
+    </div>
+  );
+}
+
+export default Marco;

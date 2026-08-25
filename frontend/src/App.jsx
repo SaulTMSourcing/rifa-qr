@@ -1,391 +1,324 @@
 // ============================================================
 // frontend/src/App.jsx
 // ------------------------------------------------------------
-// Orquestador principal de la aplicacion.
+// Orquestador del flujo completo.
 //
-// Maneja:
-//   - Maquina de estados (cargando / formulario / resumen /
-//     enviando / resultado / error)
-//   - Persistencia en localStorage (decision: no permitir
-//     re-registro en el mismo dispositivo, con escape "no soy yo")
-//   - Llamada al backend y manejo de errores tipados
-//   - Header con identidad del evento
+//   bienvenida -> q1 -> q2 -> q3 -> calculando -> diagnostico
+//              -> captura -> enviando -> resultado
+//                                     -> error
 //
-// La logica de UI esta delegada a los componentes hijos.
-// App.jsx solo coordina y mantiene estado global.
+// App solo coordina: mantiene el estado, decide que pantalla toca
+// y habla con el backend. Todo lo visual vive en los componentes.
+//
+// El Marco (encabezado + Tiburometro) NO se desmonta entre
+// pantallas: el avance del tiburon a lo largo del cuestionario es
+// continuo, y remontarlo lo reiniciaria en cada transicion.
 // ============================================================
- 
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useCallback } from 'react';
 import {
   registrarParticipante,
   healthCheck,
   NetworkError,
   ApiError,
 } from './services/api';
-import FormularioRegistro from './components/FormularioRegistro';
-import OrganicLoader from './components/OrganicLoader';
-import ResumenDatos from './components/ResumenDatos';
-import ResultadoGanador from './components/ResultadoGanador';
-import ResultadoParticipante from './components/ResultadoParticipante';
-import ResultadoError from './components/ResultadoError';
-import clickLogo from './assets/click-logo.png';
-import lextechLogo from './assets/lextech-logo.png';
- 
-// ------------------------------------------------------------
-// Clave en localStorage. Versionada por si en el futuro el
-// schema del objeto cambia: levantando el numero invalidamos
-// registros viejos sin romper.
-// ------------------------------------------------------------
-const LS_KEY = 'rifa-qr:registro:v1';
- 
-function App() {
-  // ----------------------------------------------------------
-  // Estado de la maquina de estados.
-  //   'cargando'    -> revisando localStorage al iniciar
-  //   'formulario'  -> mostrando el form de captura
-  //   'resumen'     -> confirmando datos antes de enviar
-  //   'resultado'   -> mostrando ganador o participante
-  //   'error'       -> mostrando pantalla de error
-  // ----------------------------------------------------------
-  const [vista, setVista] = useState('cargando');
- 
-  // Datos del formulario (se conservan entre vistas para "editar")
-  const [datosFormulario, setDatosFormulario] = useState(null);
- 
-  // Estado de envio (spinner del boton en resumen)
-  const [enviando, setEnviando] = useState(false);
- 
-  // Resultado exitoso del backend
-  const [resultado, setResultado] = useState(null);
- 
-  // Info del error, si hay
-  const [errorInfo, setErrorInfo] = useState(null);
+import { PREGUNTAS, nivelPorPuntaje, posicionParcial } from './tiburometro';
 
-  // true si el health check inicial detectó que el backend no responde
+import Marco from './components/Marco';
+import PantallaBienvenida from './components/PantallaBienvenida';
+import PantallaPregunta from './components/PantallaPregunta';
+import PantallaCargando from './components/PantallaCargando';
+import PantallaDiagnostico from './components/PantallaDiagnostico';
+import FormularioCaptura from './components/FormularioCaptura';
+import PantallaResultado from './components/PantallaResultado';
+import PantallaError from './components/PantallaError';
+
+// ------------------------------------------------------------
+// Clave de localStorage, versionada.
+// ------------------------------------------------------------
+// Sube a v2 porque el objeto guardado cambio de forma: antes traia
+// nombre y apellidos por separado. Con v1 se leerian registros
+// viejos incompatibles y la pantalla de resultado quedaria a
+// medias; subir la version los invalida sin romper nada.
+// ------------------------------------------------------------
+const LS_CLAVE = 'rifa-qr:registro:v2';
+
+// Duracion de la pausa del "calculo". No hay nada que calcular,
+// pero un veredicto instantaneo se siente arbitrario.
+const MS_CALCULO = 1400;
+
+const RESPUESTAS_VACIAS = {
+  q1_garantia: 0,
+  q2_cartera_vencida: 0,
+  q3_recuperacion: 0,
+};
+
+// ------------------------------------------------------------
+// leerRegistroGuardado(): recupera el registro de este dispositivo.
+//
+// Se lee al INICIALIZAR el estado, no dentro de un efecto. Hacerlo
+// en un efecto obligaria a pintar primero una pantalla de carga y
+// reemplazarla enseguida: un render de mas y un parpadeo visible
+// en cada apertura. localStorage es sincrono, no hay nada que
+// esperar.
+//
+// Un JSON corrupto o de una version anterior se descarta y se
+// limpia, para que un solo registro malo no deje el dispositivo
+// inservible durante el evento.
+// ------------------------------------------------------------
+function leerRegistroGuardado() {
+  try {
+    const crudo = localStorage.getItem(LS_CLAVE);
+    if (!crudo) return null;
+    const guardado = JSON.parse(crudo);
+    if (guardado && typeof guardado.numeroRegistro === 'number') return guardado;
+  } catch {
+    localStorage.removeItem(LS_CLAVE);
+  }
+  return null;
+}
+
+function App() {
+  const [resultado, setResultado] = useState(leerRegistroGuardado);
+  const [vista, setVista] = useState(resultado ? 'resultado' : 'bienvenida');
+  const [respuestas, setRespuestas] = useState(RESPUESTAS_VACIAS);
+  const [datosFormulario, setDatosFormulario] = useState(null);
+  const [errorInfo, setErrorInfo] = useState(null);
   const [backendCaido, setBackendCaido] = useState(false);
- 
+
   // ----------------------------------------------------------
-  // Efecto inicial: revisar localStorage
+  // Sondeo del backend, sin bloquear la interfaz
   // ----------------------------------------------------------
-  // Si ya hay un registro guardado, mostrar directo el resultado.
-  // Si no, mostrar el formulario.
+  // Si no responde se avisa, pero se deja continuar: es preferible
+  // que la persona llene el formulario y falle al final a que se
+  // quede mirando una pantalla muerta.
   // ----------------------------------------------------------
   useEffect(() => {
-    // ----------------------------------------------------------
-    // Health check en paralelo: no bloquea la UI, solo avisa
-    // si el backend no está disponible antes de que el usuario
-    // llene el formulario.
-    // ----------------------------------------------------------
-    healthCheck().then((ok) => {
-      if (!ok) setBackendCaido(true);
-    });
-
-    // ----------------------------------------------------------
-    // Mínimo 3 s en pantalla de carga para que el loader se vea.
-    // El check de localStorage es instantáneo, así que usamos
-    // Promise.all para esperar ambos: la lógica Y el delay.
-    // ----------------------------------------------------------
-    const delay = new Promise((resolve) => setTimeout(resolve, 3000));
-
-    const chequearRegistro = new Promise((resolve) => {
-      try {
-        const raw = localStorage.getItem(LS_KEY);
-        if (raw) {
-          const guardado = JSON.parse(raw);
-          if (
-            guardado &&
-            typeof guardado.numeroRegistro === 'number' &&
-            typeof guardado.nombreCompleto === 'string'
-          ) {
-            resolve({ tipo: 'resultado', datos: guardado });
-            return;
-          }
-        }
-      } catch {
-        localStorage.removeItem(LS_KEY);
-      }
-      resolve({ tipo: 'formulario' });
-    });
-
-    Promise.all([chequearRegistro, delay]).then(([{ tipo, datos }]) => {
-      if (tipo === 'resultado') {
-        setResultado(datos);
-        setVista('resultado');
-      } else {
-        setVista('formulario');
-      }
-    });
+    healthCheck().then((ok) => setBackendCaido(!ok));
   }, []);
- 
+
   // ----------------------------------------------------------
-  // Handler: el formulario hace submit -> mostrar resumen
+  // Diagnostico derivado de las respuestas
   // ----------------------------------------------------------
-  const handleFormularioSubmit = (datos) => {
-    setDatosFormulario(datos);
-    setVista('resumen');
+  // Se recalcula en cada render en vez de guardarse en estado: es
+  // una funcion pura y barata de tres numeros, y mantenerlo como
+  // estado abriria la puerta a que se desincronice.
+  //
+  // Lo que se GUARDA en la base lo recalcula el servidor; esto es
+  // solo para pintar.
+  // ----------------------------------------------------------
+  const puntaje =
+    respuestas.q1_garantia + respuestas.q2_cartera_vencida + respuestas.q3_recuperacion;
+  const completo = Object.values(respuestas).every((v) => v > 0);
+  const nivel = completo ? nivelPorPuntaje(puntaje) : null;
+
+  // Posicion del tiburon: mientras se responde avanza parcialmente;
+  // con el diagnostico listo se ancla en la marca de su nivel.
+  const mostrandoNivel = ['diagnostico', 'captura', 'enviando', 'resultado'].includes(vista);
+  const posicionTiburon = mostrandoNivel && nivel ? nivel.ancla : posicionParcial(respuestas);
+
+  // ----------------------------------------------------------
+  const responder = (clave, valor) => {
+    const siguientes = { ...respuestas, [clave]: valor };
+    setRespuestas(siguientes);
+
+    // Pausa breve para que se vea la opcion marcada y el tiburon
+    // avanzar antes de cambiar de pantalla.
+    setTimeout(() => {
+      if (clave === 'q1_garantia') setVista('q2');
+      else if (clave === 'q2_cartera_vencida') setVista('q3');
+      else {
+        setVista('calculando');
+        setTimeout(() => setVista('diagnostico'), MS_CALCULO);
+      }
+    }, 420);
   };
- 
+
   // ----------------------------------------------------------
-  // Handler: usuario hace click en "Editar datos" desde el resumen
+  // Envio al backend
   // ----------------------------------------------------------
-  const handleEditar = () => {
-    setErrorInfo(null);
-    setVista('formulario');
-  };
- 
-  // ----------------------------------------------------------
-  // Handler: usuario confirma el envio al backend
-  // ----------------------------------------------------------
-  const handleConfirmar = async () => {
-    if (!datosFormulario) return;
- 
-    setEnviando(true);
-    setErrorInfo(null);
- 
-    try {
-      const respuesta = await registrarParticipante(datosFormulario);
- 
-      // Construir nombre completo para mostrar en pantalla
-      const nombreCompleto = [
-        datosFormulario.nombre,
-        datosFormulario.apellido_pat,
-        datosFormulario.apellido_mat,
-      ]
-        .filter(Boolean)
-        .join(' ');
- 
-      const objetoResultado = {
-        numeroRegistro: respuesta.numeroRegistro,
-        esGanador: respuesta.esGanador,
-        premio: respuesta.premio,
-        nombreCompleto,
-        fechaRegistro: new Date().toISOString(),
-      };
- 
-      // Persistir en localStorage
+  const enviar = useCallback(
+    async (datos) => {
+      setDatosFormulario(datos);
+      setErrorInfo(null);
+      setVista('enviando');
+
       try {
-        localStorage.setItem(LS_KEY, JSON.stringify(objetoResultado));
-      } catch {
-        // Si localStorage no esta disponible (modo incognito viejo,
-        // cuota llena, etc.) no es critico: seguimos.
-      }
- 
-      setResultado(objetoResultado);
-      setVista('resultado');
-    } catch (error) {
-      // ----------------------------------------------------
-      // Mapear error a la pantalla de error correspondiente
-      // ----------------------------------------------------
-      if (error instanceof NetworkError) {
-        setErrorInfo({
-          tipo: 'red',
-          mensaje: error.message,
+        const respuesta = await registrarParticipante({
+          ...datos,
+          ...respuestas,
         });
-      } else if (error instanceof ApiError) {
-        if (error.tipo === 'correo_duplicado') {
-          setErrorInfo({
-            tipo: 'correo_duplicado',
-            mensaje:
-              'El correo que ingresaste ya está registrado en la rifa. Si ya te registraste, no es necesario hacerlo de nuevo.',
-          });
-        } else if (error.tipo === 'rate_limit_exceeded') {
-          setErrorInfo({
-            tipo: 'rate_limit',
-            mensaje:
-              'Se han realizado demasiados intentos desde esta conexión. Espera unos minutos e intenta de nuevo.',
-          });
-        } else if (error.tipo === 'datos_invalidos') {
-          // El backend rechazo datos que el frontend no atrapo.
-          // Devolvemos al form para que corrija.
-          setErrorInfo({
-            tipo: 'generico',
-            mensaje: `Hay un problema con el campo ${error.campo}: ${error.mensaje}`,
-          });
-        } else {
-          setErrorInfo({
-            tipo: 'generico',
-            mensaje: error.message,
-          });
+
+        const objeto = {
+          numeroRegistro: respuesta.numeroRegistro,
+          esGanador: respuesta.esGanador,
+          premio: respuesta.premio,
+          // El del backend, no el del formulario: viene normalizado
+          // y es identico al que quedo guardado en la base.
+          nombreCompleto: respuesta.nombreCompleto,
+          fechaRegistro: new Date().toISOString(),
+        };
+
+        try {
+          localStorage.setItem(LS_CLAVE, JSON.stringify(objeto));
+        } catch {
+          // Sin localStorage (incognito, cuota llena) el registro ya
+          // quedo guardado en el servidor: no es critico.
         }
-      } else {
-        setErrorInfo({
-          tipo: 'generico',
-          mensaje: 'Ocurrió un error inesperado. Intenta de nuevo.',
-        });
+
+        setResultado(objeto);
+        setVista('resultado');
+      } catch (error) {
+        if (error instanceof NetworkError) {
+          setErrorInfo({ tipo: 'red', mensaje: error.message });
+        } else if (error instanceof ApiError) {
+          if (error.tipo === 'correo_duplicado') {
+            setErrorInfo({
+              tipo: 'correo_duplicado',
+              mensaje:
+                'Ese correo ya participó en la rifa. Si fuiste tú, no necesitas registrarte otra vez.',
+            });
+          } else if (error.tipo === 'rate_limit_exceeded') {
+            setErrorInfo({
+              tipo: 'rate_limit',
+              mensaje:
+                'Se han hecho demasiados intentos desde esta conexión. Espera unos minutos e intenta de nuevo.',
+            });
+          } else {
+            setErrorInfo({
+              tipo: 'generico',
+              mensaje: error.campo
+                ? `Hay un problema con el campo ${error.campo}: ${error.message}`
+                : error.message,
+            });
+          }
+        } else {
+          setErrorInfo({ tipo: 'generico', mensaje: 'Ocurrió un error inesperado.' });
+        }
+        setVista('error');
       }
- 
-      setVista('error');
-    } finally {
-      setEnviando(false);
-    }
-  };
- 
+    },
+    [respuestas]
+  );
+
   // ----------------------------------------------------------
-  // Handler: usuario hace click en "No soy yo" desde el resultado
-  // Limpia localStorage y vuelve al formulario.
-  // ----------------------------------------------------------
-  const handleNoSoyYo = () => {
-    if (
-      window.confirm(
-        '¿Seguro que deseas borrar este registro y registrar a otra persona? Esta acción no se puede deshacer en este dispositivo.'
-      )
-    ) {
-      localStorage.removeItem(LS_KEY);
-      setResultado(null);
-      setDatosFormulario(null);
-      setVista('formulario');
-    }
+  const reiniciar = () => {
+    setRespuestas(RESPUESTAS_VACIAS);
+    setDatosFormulario(null);
+    setResultado(null);
+    setErrorInfo(null);
+    setVista('bienvenida');
   };
- 
-  // ==========================================================
-  // Render
-  // ==========================================================
+
+  const noSoyYo = () => {
+    const ok = window.confirm(
+      '¿Seguro que quieres borrar este registro y empezar de nuevo? No se puede deshacer en este dispositivo.'
+    );
+    if (!ok) return;
+    localStorage.removeItem(LS_CLAVE);
+    reiniciar();
+  };
+
+  // ----------------------------------------------------------
+  // Que pantalla toca
+  // ----------------------------------------------------------
+  const pasoBarra = { q1: 1, q2: 2, q3: 3 }[vista] || 0;
+
+  let contenido;
+  switch (vista) {
+    case 'bienvenida':
+      contenido = <PantallaBienvenida onEmpezar={() => setVista('q1')} />;
+      break;
+
+    case 'q1':
+    case 'q2':
+    case 'q3': {
+      const indice = Number(vista.slice(1)) - 1;
+      const pregunta = PREGUNTAS[indice];
+      contenido = (
+        <PantallaPregunta
+          pregunta={pregunta}
+          numero={indice + 1}
+          elegida={respuestas[pregunta.clave] || null}
+          onElegir={(valor) => responder(pregunta.clave, valor)}
+        />
+      );
+      break;
+    }
+
+    case 'calculando':
+      contenido = <PantallaCargando mensaje="Calculando tu nivel de exposición…" />;
+      break;
+
+    case 'diagnostico':
+      contenido = (
+        <PantallaDiagnostico
+          nivel={nivel}
+          tuTiempo={PREGUNTAS[2].opciones[respuestas.q3_recuperacion - 1]}
+          onContinuar={() => setVista('captura')}
+        />
+      );
+      break;
+
+    case 'captura':
+      contenido = (
+        <FormularioCaptura onEnviar={enviar} valoresIniciales={datosFormulario} />
+      );
+      break;
+
+    case 'enviando':
+      contenido = <PantallaCargando mensaje="Registrando tu participación…" />;
+      break;
+
+    case 'resultado':
+      contenido = <PantallaResultado resultado={resultado} onNoSoyYo={noSoyYo} />;
+      break;
+
+    case 'error':
+      contenido = (
+        <PantallaError
+          tipo={errorInfo?.tipo}
+          mensaje={errorInfo?.mensaje}
+          onReintentar={datosFormulario ? () => enviar(datosFormulario) : undefined}
+          onEditar={() => setVista('captura')}
+        />
+      );
+      break;
+
+    default:
+      contenido = null;
+  }
+
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* =================================================== */}
-      {/* Header global                                        */}
-      {/* =================================================== */}
-      <header className="bg-white border-b border-gray-200 px-4 py-5 shadow-sm">
-        <div className="max-w-md mx-auto text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-click-orange mb-3">
-            Convención Nacional ASOFOM
-          </p>
-
-          {/*
-            El logo ES el titulo de la pagina, por eso va dentro del
-            h1: se conserva la jerarquia semantica y los lectores de
-            pantalla anuncian el alt como encabezado.
-            width/height explicitos reservan el espacio antes de que
-            la imagen cargue y evitan el salto de layout (CLS).
-          */}
-          <h1>
-            <img
-              src={clickLogo}
-              alt="CLICK Seguridad Jurídica"
-              width={600}
-              height={225}
-              className="h-14 sm:h-16 w-auto mx-auto"
-            />
-          </h1>
-
-          <p className="text-xs text-click-gray mt-3">
-            Regístrate y participa en la rifa
-          </p>
+    <Marco
+      paso={pasoBarra}
+      onReiniciar={vista === 'bienvenida' ? undefined : reiniciar}
+      posicionTiburon={posicionTiburon}
+      tiburonActivo={puntaje > 0}
+      nivel={mostrandoNivel && nivel ? nivel.clave : null}
+    >
+      {/* Aviso si el backend no respondio al abrir */}
+      {backendCaido && vista !== 'resultado' && (
+        <div
+          className="mb-4 flex items-start gap-2.5 rounded-xl border border-zona-sharks/40
+                     bg-zona-sharks/10 px-3.5 py-2.5 text-[12.5px] text-espuma"
+          role="alert"
+        >
+          <span aria-hidden="true">⚠</span>
+          <span>El servidor no responde. Puedes continuar, pero el registro podría fallar.</span>
         </div>
-      </header>
- 
-      {/* =================================================== */}
-      {/* Contenido principal                                  */}
-      {/* =================================================== */}
-      <main className="flex-1 py-8 px-4">
-        {/* Banner: backend no disponible */}
-        {backendCaido && (
-          <div className="max-w-md mx-auto mb-4 flex items-start gap-3 bg-red-50 border border-red-200 text-danger rounded-xl px-4 py-3 text-sm font-medium">
-            <span className="mt-0.5 shrink-0">⚠️</span>
-            <span>
-              El servidor no responde en este momento. Puedes llenar el formulario,
-              pero el registro podría fallar al confirmar.
-            </span>
-          </div>
-        )}
+      )}
 
-        <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl border-t-[3px] border-click-orange p-6 sm:p-8">
-          {/*
-            key={vista}: cada vez que cambia la vista React desmonta
-            y remonta este div, re-disparando animate-fade-up.
-            Sin key, la animación solo ocurre en el montaje inicial.
-          */}
-          <div key={vista} className="animate-fade-up">
-
-            {/* Estado: cargando */}
-            {vista === 'cargando' && (
-              <div className="py-10 flex justify-center">
-                <OrganicLoader label="Cargando..." />
-              </div>
-            )}
-
-            {/* Estado: formulario */}
-            {vista === 'formulario' && (
-              <FormularioRegistro
-                onSubmit={handleFormularioSubmit}
-                defaultValues={datosFormulario}
-              />
-            )}
-
-            {/* Estado: resumen */}
-            {vista === 'resumen' && datosFormulario && (
-              <ResumenDatos
-                datos={datosFormulario}
-                onEditar={handleEditar}
-                onConfirmar={handleConfirmar}
-                enviando={enviando}
-              />
-            )}
-
-            {/* Estado: resultado (ganador o participante) */}
-            {vista === 'resultado' && resultado && (
-              <>
-                {resultado.esGanador ? (
-                  <ResultadoGanador
-                    numeroRegistro={resultado.numeroRegistro}
-                    nombreCompleto={resultado.nombreCompleto}
-                    premio={resultado.premio}
-                    onNoSoyYo={handleNoSoyYo}
-                  />
-                ) : (
-                  <ResultadoParticipante
-                    numeroRegistro={resultado.numeroRegistro}
-                    nombreCompleto={resultado.nombreCompleto}
-                    onNoSoyYo={handleNoSoyYo}
-                  />
-                )}
-              </>
-            )}
-
-            {/* Estado: error */}
-            {vista === 'error' && errorInfo && (
-              <ResultadoError
-                tipo={errorInfo.tipo}
-                mensaje={errorInfo.mensaje}
-                onReintentar={handleConfirmar}
-                onEditar={handleEditar}
-              />
-            )}
-
-          </div>
-        </div>
-      </main>
- 
-      {/* =================================================== */}
-      {/* Footer                                               */}
-      {/* =================================================== */}
       {/*
-        El logo de Lextech es vertical (retrato), asi que se apila
-        bajo su etiqueta en vez de ir en linea: forzarlo a una fila
-        lo dejaria demasiado pequeno para reconocerse.
+        key por vista: React desmonta y remonta el bloque en cada
+        cambio, lo que vuelve a disparar las animaciones de entrada.
+        Sin esto solo se animarian en el primer montaje.
       */}
-      <footer className="px-4 py-6">
-        <div className="max-w-md mx-auto flex flex-col items-center gap-4">
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-click-gray/70">
-              Impulsado por
-            </p>
-            <img
-              src={lextechLogo}
-              alt="Lextech"
-              width={1226}
-              height={1783}
-              className="h-16 w-auto"
-            />
-          </div>
-
-          <p className="text-xs text-click-gray text-center border-t border-gray-200 pt-4 w-full">
-            CLICK Seguridad Jurídica · ASOFOM 2026
-          </p>
-        </div>
-      </footer>
-    </div>
+      <div key={vista} className="h-full">
+        {contenido}
+      </div>
+    </Marco>
   );
 }
- 
+
 export default App;

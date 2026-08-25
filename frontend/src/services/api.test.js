@@ -95,7 +95,7 @@ describe('registrarParticipante', () => {
   // ----------------------------------------------------------
   // Caso exito
   // ----------------------------------------------------------
-  it('devuelve { numeroRegistro, esGanador, premio, mensaje } exactos en exito 201', async () => {
+  it('devuelve los campos exactos del contrato en exito 201', async () => {
     fetch.mockResolvedValueOnce(
       respuestaJson({
         ok: true,
@@ -103,6 +103,7 @@ describe('registrarParticipante', () => {
         body: {
           ok: true,
           numeroRegistro: 42,
+          nombreCompleto: 'Ana Sofía del Valle',
           esGanador: true,
           premio: 'Taza edición especial',
           mensaje: '¡Felicidades, ganaste!',
@@ -114,14 +115,42 @@ describe('registrarParticipante', () => {
 
     const resultado = await registrarParticipante(DATOS_VALIDOS);
 
-    // toEqual es estricto: verifica que solo salgan los 4 campos
-    // del contrato y con los valores exactos.
+    // toEqual es estricto: verifica que solo salgan los campos del
+    // contrato y con los valores exactos.
     expect(resultado).toEqual({
       numeroRegistro: 42,
+      nombreCompleto: 'Ana Sofía del Valle',
       esGanador: true,
       premio: 'Taza edición especial',
       mensaje: '¡Felicidades, ganaste!',
     });
+  });
+
+  it('propaga el nombre YA NORMALIZADO por el backend', async () => {
+    fetch.mockResolvedValueOnce(
+      respuestaJson({
+        ok: true,
+        status: 201,
+        body: {
+          ok: true,
+          numeroRegistro: 7,
+          nombreCompleto: 'Ana Sofía del Valle Ibarra',
+          esGanador: false,
+          premio: null,
+          mensaje: 'Registro exitoso.',
+        },
+      })
+    );
+
+    // Lo que se escribio en el formulario, sin normalizar
+    const resultado = await registrarParticipante({
+      ...DATOS_VALIDOS,
+      nombre_completo: 'ana sofía DEL VALLE ibarra',
+    });
+
+    // Manda el del servidor: es el que quedo en la base y el que va
+    // a leer el personal del stand al entregar el premio.
+    expect(resultado.nombreCompleto).toBe('Ana Sofía del Valle Ibarra');
   });
 
   it('propaga premio null cuando el participante no es ganador', async () => {
