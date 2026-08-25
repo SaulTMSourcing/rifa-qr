@@ -22,7 +22,8 @@
 --   7. Huecos en la secuencia de numeros
 --   8. Revision previa al evento
 --   9. Registros por empresa
---  10. Limpiar datos de prueba (COMENTADO)
+--  10. Diagnostico del Tiburometro (lectura comercial)
+--  11. Limpiar datos de prueba (COMENTADO)
 --
 -- CONTEXTO QUE EXPLICA POR QUE ESTAS CONSULTAS IMPORTAN
 --
@@ -95,7 +96,7 @@ SELECT
   -- aborta la consulta antes de que GREATEST pueda acotarla a cero.
   GREATEST(CAST(g.numero AS SIGNED) - CAST(m.ultimo AS SIGNED), 0)
                                                              AS registros_faltantes,
-  CONCAT_WS(' ', w.nombre, w.apellido_pat, w.apellido_mat)   AS ganador,
+  w.nombre_completo                                          AS ganador,
   w.empresa                                                  AS ganador_empresa,
   w.telefono                                                 AS ganador_telefono,
   w.correo                                                   AS ganador_correo,
@@ -117,11 +118,11 @@ ORDER BY g.numero;
 -- Ordenada por reclamo mas reciente primero.
 -- =====================================================================
 SELECT
-  g.numero                                                   AS numero_ganador,
+  g.numero                                       AS numero_ganador,
   g.premio,
-  CONCAT_WS(' ', p.nombre, p.apellido_pat, p.apellido_mat)   AS nombre_completo,
+  p.nombre_completo,
   p.empresa,
-  p.puesto,
+  p.monto_promedio,
   p.telefono,
   p.correo,
   g.fecha_reclamo
@@ -141,8 +142,8 @@ ORDER BY g.fecha_reclamo DESC;
 -- CAMBIA EL 42 DE LA ULTIMA LINEA por el numero que quieres verificar.
 -- =====================================================================
 SELECT
-  p.id                                                       AS numero,
-  CONCAT_WS(' ', p.nombre, p.apellido_pat, p.apellido_mat)   AS nombre_completo,
+  p.id                                           AS numero,
+  p.nombre_completo,
   p.empresa,
   p.telefono,
   p.correo,
@@ -152,7 +153,7 @@ SELECT
     WHEN g.reclamado = TRUE   THEN CONCAT('GANO: ', g.premio)
     ELSE                           CONCAT('REVISAR: numero premiado (', g.premio,
                                           ') pero sin marcar como reclamado')
-  END                                                        AS resultado
+  END                                            AS resultado
 FROM participantes p
 LEFT JOIN numeros_ganadores g ON g.numero = p.id
 WHERE p.id = 42;   -- <<<<<< CAMBIA ESTE NUMERO
@@ -181,16 +182,52 @@ ORDER BY hora;
 -- Respaldo del evento y base para seguimiento comercial.
 -- Para bajarlo como archivo: ejecuta la consulta y usa el boton
 -- "Exportar" que aparece debajo de los resultados en phpMyAdmin.
+--
+-- Incluye el diagnostico del Tiburometro traducido a texto. Es lo
+-- que convierte esta lista de contactos en una lista de prospectos
+-- calificados: por cada persona se sabe que garantia usa, cuanta
+-- cartera vencida carga y cuanto tarda en recuperar.
 -- =====================================================================
 SELECT
   p.id                                          AS numero_registro,
-  p.nombre,
-  p.apellido_pat                                AS apellido_paterno,
-  p.apellido_mat                                AS apellido_materno,
+  p.nombre_completo,
   p.empresa,
-  p.puesto,
+  p.monto_promedio,
   p.telefono,
   p.correo,
+
+  -- Diagnostico, en texto legible
+  CASE p.nivel_exposicion
+    WHEN 'safe'     THEN 'Zona Segura'
+    WHEN 'turbias'  THEN 'Aguas Turbias'
+    WHEN 'abiertas' THEN 'Aguas Abiertas'
+    WHEN 'sharks'   THEN 'Zona de Tiburones'
+    ELSE p.nivel_exposicion
+  END                                           AS nivel_exposicion,
+  p.puntaje_total,
+
+  -- Las respuestas se guardan como la POSICION de la opcion (1 a 4),
+  -- que es tambien su puntaje. Aqui se traducen para que el export
+  -- se lea sin tener que consultar el catalogo.
+  CASE p.q1_garantia
+    WHEN 1 THEN 'Fideicomiso de garantia'
+    WHEN 2 THEN 'Garantia hipotecaria tradicional'
+    WHEN 3 THEN 'Aval u obligado solidario'
+    WHEN 4 THEN 'Ninguna garantia real'
+  END                                           AS garantia_que_usa,
+  CASE p.q2_cartera_vencida
+    WHEN 1 THEN 'Menos de 3%'
+    WHEN 2 THEN '3% - 7%'
+    WHEN 3 THEN '7% - 15%'
+    WHEN 4 THEN 'Mas de 15%'
+  END                                           AS cartera_vencida,
+  CASE p.q3_recuperacion
+    WHEN 1 THEN '4 meses o menos'
+    WHEN 2 THEN '4 - 6 meses'
+    WHEN 3 THEN '6 - 12 meses'
+    WHEN 4 THEN 'Mas de 12 meses / no recuperamos'
+  END                                           AS tiempo_recuperacion,
+
   CASE WHEN p.es_ganador = TRUE THEN 'SI' ELSE 'NO' END AS gano,
   g.premio,
   p.fecha_registro
@@ -271,7 +308,39 @@ ORDER BY registrados DESC, p.empresa ASC;
 
 
 -- =====================================================================
--- 10. LIMPIAR DATOS DE PRUEBA   ***  DESTRUCTIVO  ***
+-- 10. DIAGNOSTICO DEL TIBUROMETRO
+-- ---------------------------------------------------------------------
+-- Como quedo repartida la sala por nivel de exposicion, y cuanto pesa
+-- cada nivel sobre el total.
+--
+-- Es la lectura comercial del evento: dice cuantos prospectos estan en
+-- riesgo alto y por donde entrarles. Un asistente en Zona de Tiburones
+-- con creditos de mas de $10 millones es una conversacion muy distinta
+-- a uno en Zona Segura.
+-- =====================================================================
+SELECT
+  CASE p.nivel_exposicion
+    WHEN 'safe'     THEN '1. Zona Segura'
+    WHEN 'turbias'  THEN '2. Aguas Turbias'
+    WHEN 'abiertas' THEN '3. Aguas Abiertas'
+    WHEN 'sharks'   THEN '4. Zona de Tiburones'
+    ELSE COALESCE(p.nivel_exposicion, '(sin diagnostico)')
+  END                                            AS nivel,
+  COUNT(*)                                       AS personas,
+  ROUND(100 * COUNT(*) / SUM(COUNT(*)) OVER (), 1) AS porcentaje,
+  MIN(p.puntaje_total)                           AS puntaje_min,
+  MAX(p.puntaje_total)                           AS puntaje_max,
+  -- Cuantos de este nivel manejan los montos mas altos: son los
+  -- prospectos donde el riesgo pesa mas dinero.
+  SUM(p.monto_promedio IN ('$2 - $10 millones', 'Más de $10 millones'))
+                                                 AS con_creditos_altos
+FROM participantes p
+GROUP BY nivel
+ORDER BY nivel;
+
+
+-- =====================================================================
+-- 11. LIMPIAR DATOS DE PRUEBA   ***  DESTRUCTIVO  ***
 -- =====================================================================
 -- TODO ESTE BLOQUE ESTA COMENTADO A PROPOSITO. Borra participantes y
 -- reinicia el contador de numeros.

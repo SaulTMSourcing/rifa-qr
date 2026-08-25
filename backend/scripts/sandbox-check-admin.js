@@ -71,6 +71,11 @@ function extraerBloques(sql) {
 // ------------------------------------------------------------
 // Aserciones: que esperamos de los datos sembrados
 // ------------------------------------------------------------
+// Numero del bloque destructivo de admin.sql. Se declara aqui para
+// que si el archivo crece y ese bloque cambia de numero, solo haya
+// que tocar esta linea.
+const BLOQUE_DESTRUCTIVO = 11;
+
 const fallos = [];
 function verificar(descripcion, condicion, detalle) {
   if (condicion) {
@@ -93,8 +98,9 @@ async function main() {
   const resultados = {};
 
   for (const b of bloques) {
-    if (b.numero === 10) {
-      console.log('-- Bloque 10 (' + b.titulo + '): omitido, es destructivo y esta comentado.');
+    if (b.numero === BLOQUE_DESTRUCTIVO) {
+      console.log('-- Bloque ' + b.numero + ' (' + b.titulo +
+        '): omitido, es destructivo y esta comentado.');
       continue;
     }
     process.stdout.write('-- Bloque ' + b.numero + ': ' + b.titulo + '\n');
@@ -151,6 +157,12 @@ async function main() {
   verificar('devuelve exactamente 2 ganadores', resultados[3]?.length === 2, 'devolvio ' + resultados[3]?.length);
   verificar('todos traen premio y contacto',
     (resultados[3] || []).every((f) => f.premio && f.correo && f.telefono));
+  // Tras la migracion 002 las columnas viejas quedan en NULL: si
+  // alguna consulta las siguiera usando, el nombre saldria vacio
+  // justo cuando se entrega un premio en el stand.
+  verificar('el nombre NO viene vacio',
+    (resultados[3] || []).every((f) => f.nombre_completo && f.nombre_completo.trim()),
+    JSON.stringify((resultados[3] || []).map((f) => f.nombre_completo)));
 
   // --- Bloque 4: verificacion puntual (el WHERE fijo es id = 42) ---
   console.log('\n[4] Verificar un numero puntual (id = 42 en el archivo)');
@@ -196,6 +208,39 @@ async function main() {
   verificar('la suma por empresa da 58', totalEmp === 58, 'sumo ' + totalEmp);
   verificar('la suma de ganadores por empresa da 2',
     (resultados[9] || []).reduce((a, f) => a + Number(f.ganadores), 0) === 2);
+
+  // --- Bloque 10: diagnostico del Tiburometro ---
+  console.log('\n[10] Diagnostico del Tiburometro');
+  for (const f of resultados[10] || []) {
+    console.log('     ' + String(f.nivel).padEnd(24) + f.personas +
+      ' personas (' + f.porcentaje + '%), puntajes ' + f.puntaje_min + '-' + f.puntaje_max +
+      ', ' + f.con_creditos_altos + ' con creditos altos');
+  }
+  const totalNiveles = (resultados[10] || []).reduce((a, f) => a + Number(f.personas), 0);
+  verificar('la suma por nivel da 58', totalNiveles === 58, 'sumo ' + totalNiveles);
+  verificar('los porcentajes suman ~100',
+    Math.abs((resultados[10] || []).reduce((a, f) => a + Number(f.porcentaje), 0) - 100) < 0.5);
+  verificar('los cuatro niveles aparecen en los datos de prueba',
+    (resultados[10] || []).length === 4, (resultados[10] || []).length + ' niveles');
+  verificar('ningun nivel sale sin traducir',
+    (resultados[10] || []).every((f) => /^\d\. /.test(f.nivel)),
+    JSON.stringify((resultados[10] || []).map((f) => f.nivel)));
+
+  // --- Ninguna consulta debe arrastrar columnas viejas ---
+  // Es la comprobacion que motivo este cambio: la migracion 002 dejo
+  // nombre, apellidos y puesto en NULL, y cualquier consulta que
+  // siguiera usandolas mostraria campos vacios el dia del evento.
+  console.log('\n[*] Rastros de columnas viejas');
+  const sqlCompleto = bloques.map((b) => b.sql).join('\n');
+  for (const vieja of ['apellido_pat', 'apellido_mat', 'p.puesto', 'w.nombre,']) {
+    verificar('ninguna consulta usa ' + vieja, !sqlCompleto.includes(vieja));
+  }
+  const exportado = resultados[6]?.[0] || {};
+  verificar('el export trae nombre_completo con contenido',
+    !!exportado.nombre_completo, JSON.stringify(exportado.nombre_completo));
+  verificar('el export trae el diagnostico traducido',
+    !!exportado.nivel_exposicion && !!exportado.garantia_que_usa,
+    JSON.stringify([exportado.nivel_exposicion, exportado.garantia_que_usa]));
 
   // ==========================================================
   console.log('\n============================================================');
