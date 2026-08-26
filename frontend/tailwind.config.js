@@ -96,6 +96,35 @@ export default {
         'girar': {
           to: { transform: 'rotate(360deg)' },
         },
+
+        // El numero de registro es el momento que importa: aparece
+        // con un rebote corto para que se sienta entregado, no
+        // simplemente impreso.
+        'sellar': {
+          '0%':   { opacity: '0', transform: 'scale(.72)' },
+          '55%':  { opacity: '1', transform: 'scale(1.06)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+
+        // Fondo de la ventana de premios
+        'aparecer': {
+          from: { opacity: '0' },
+          to:   { opacity: '1' },
+        },
+
+        // La ventana sube desde abajo: sugiere que viene de la
+        // pantalla actual y no que reemplaza a la app.
+        'subir': {
+          from: { opacity: '0', transform: 'translateY(22px) scale(.97)' },
+          to:   { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+
+        // Latido suave para el aviso de la captura de pantalla: es
+        // la unica instruccion accionable de esa pantalla.
+        'respirar': {
+          '0%, 100%': { opacity: '1' },
+          '50%':      { opacity: '.72' },
+        },
       },
       animation: {
         'entrar':     'entrar .45s cubic-bezier(.22,.9,.3,1) both',
@@ -104,6 +133,10 @@ export default {
         'pulso':      'pulso 2.2s ease-in-out infinite',
         'corriente':  'corriente 9s linear infinite',
         'girar':      'girar 1s linear infinite',
+        'sellar':     'sellar .62s cubic-bezier(.2,.85,.3,1.05) both',
+        'aparecer':   'aparecer .22s ease-out both',
+        'subir':      'subir .34s cubic-bezier(.22,.9,.3,1) both',
+        'respirar':   'respirar 2.6s ease-in-out 1.2s 3',
       },
     },
   },

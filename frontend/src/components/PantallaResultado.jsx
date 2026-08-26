@@ -72,7 +72,17 @@ function PantallaResultado({ resultado }) {
         <p className="font-mono text-[10.5px] uppercase tracking-[.12em] text-bruma">
           Tu número de registro
         </p>
-        <p className="mt-1.5 font-mono text-[46px] font-semibold leading-none text-click-orange">
+        {/*
+          Animacion propia, mas lenta que la de entrada: este numero
+          es lo unico que la persona se lleva del registro, y el
+          rebote corto hace que se sienta entregado y no solo
+          impreso. Ademas atrae la vista justo antes de que lea el
+          aviso de tomar captura.
+        */}
+        <p
+          className="animate-sellar mt-1.5 font-mono text-[46px] font-semibold leading-none text-click-orange"
+          style={{ animationDelay: '260ms' }}
+        >
           {numeroRegistro}
         </p>
         {nombreCompleto && (
@@ -94,7 +104,12 @@ function PantallaResultado({ resultado }) {
                    border border-click-orange/40 bg-click-orange/10 px-3.5 py-3 text-left"
         style={{ animationDelay: '240ms' }}
       >
-        <span className="mt-px shrink-0 text-[15px]" aria-hidden="true">📸</span>
+        {/*
+          El icono late tres veces y se detiene. Repetir sin fin
+          distrae; tres pulsos bastan para atraer la vista una vez y
+          despues quedarse quieto.
+        */}
+        <span className="animate-respirar mt-px shrink-0 text-[15px]" aria-hidden="true">📸</span>
         <p className="text-[12.5px] leading-[1.45] text-espuma">
           <strong className="font-semibold">Toma una captura de pantalla.</strong>{' '}
           Vas a necesitar este número el viernes para reclamar tu premio.

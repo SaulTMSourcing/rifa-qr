@@ -33,6 +33,7 @@ import FormularioCaptura from './components/FormularioCaptura';
 import PantallaResultado from './components/PantallaResultado';
 import PantallaCerrado from './components/PantallaCerrado';
 import PantallaError from './components/PantallaError';
+import VentanaPremios from './components/VentanaPremios';
 
 // ------------------------------------------------------------
 // Clave de localStorage, versionada.
@@ -92,6 +93,7 @@ function App() {
   const [errorInfo, setErrorInfo] = useState(null);
   const [backendCaido, setBackendCaido] = useState(false);
   const [registroCerrado, setRegistroCerrado] = useState(false);
+  const [premiosAbiertos, setPremiosAbiertos] = useState(false);
 
   // ----------------------------------------------------------
   // Sondeo del backend, sin bloquear la interfaz
@@ -348,7 +350,23 @@ function App() {
   return (
     <Marco
       paso={pasoBarra}
-      onReiniciar={vistaEfectiva === 'bienvenida' || vistaEfectiva === 'cerrado' ? undefined : reiniciar}
+      /*
+        Reiniciar NO aparece en la pantalla de resultado: una vez
+        entregado el numero, esa persona ya no tiene nada que
+        reiniciar, y el boton solo abriria la puerta a que lo toque
+        por error y pierda de vista su numero.
+
+        Consecuencia a tener presente: en un dispositivo compartido,
+        quien ya se registro no puede pasarselo a otra persona sin
+        recargar. En el evento cada quien usa su propio telefono, asi
+        que se acepta.
+      */
+      onReiniciar={
+        ['bienvenida', 'cerrado', 'resultado'].includes(vistaEfectiva)
+          ? undefined
+          : reiniciar
+      }
+      onVerPremios={() => setPremiosAbiertos(true)}
       posicionTiburon={posicionTiburon}
       tiburonActivo={puntaje > 0}
       nivel={mostrandoNivel && nivel ? nivel.clave : null}
@@ -373,6 +391,16 @@ function App() {
       <div key={vistaEfectiva} className="h-full">
         {contenido}
       </div>
+
+      {/*
+        La ventana de premios vive dentro del Marco pero se posiciona
+        fija sobre toda la pantalla, asi que se ve completa aunque el
+        kiosco sea mas chico que el viewport.
+      */}
+      <VentanaPremios
+        abierta={premiosAbiertos}
+        onCerrar={() => setPremiosAbiertos(false)}
+      />
     </Marco>
   );
 }

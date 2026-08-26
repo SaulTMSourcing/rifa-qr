@@ -180,13 +180,28 @@
   filter: drop-shadow(0 6px 14px rgba(0,0,0,.55));
 }
 
+/* ----------------------------------------------------------
+   Realce de la opcion elegida
+   ----------------------------------------------------------
+   Antes, tocar una opcion solo cambiaba el borde, y con la pausa
+   de 420 ms antes de avanzar quedaba la duda de si el toque habia
+   registrado. Un empuje corto confirma el toque de inmediato.
+   ---------------------------------------------------------- */
+.opcion { transform: translateX(0); }
+.opcion[data-elegida='true'] {
+  animation: empujeOpcion .34s cubic-bezier(.22,.9,.3,1);
+}
+@keyframes empujeOpcion {
+  0%   { transform: translateX(0); }
+  45%  { transform: translateX(7px); }
+  100% { transform: translateX(0); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tiburon,
-  .animate-nadar,
-  .animate-sonar,
-  .animate-pulso,
-  .animate-corriente,
-  .animate-entrar {
+  .opcion,
+  .opcion[data-elegida='true'],
+  [class*='animate-'] {
     animation: none !important;
     transition: none !important;
   }

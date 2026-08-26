@@ -83,6 +83,39 @@ async function main() {
   }
 
   // ----------------------------------------------------------
+  // Poster de premios
+  // ----------------------------------------------------------
+  // Llega en 2292x7083 y 1 MB. Se ve dentro de una ventana de unos
+  // 380 px de ancho, asi que 760 cubre retina de sobra.
+  //
+  // Es una imagen MUY alta (relacion 1:3), asi que no se limita el
+  // alto: recortarla partiria el poster a la mitad. Solo se acota el
+  // ancho y el alto sale proporcional.
+  //
+  // Se busca por prefijo porque el nombre del archivo trae la fecha
+  // y cambia cada vez que diseño lo actualiza.
+  // ----------------------------------------------------------
+  const DESCARGAS = 'C:/Users/TMSOURCING70/Downloads';
+  const posterOrigen = fs.existsSync(DESCARGAS)
+    ? fs.readdirSync(DESCARGAS)
+        .filter((f) => /^Click - Mailing - Premios.*\.png$/i.test(f))
+        .sort()
+        .pop()
+    : null;
+
+  if (posterOrigen) {
+    const origen = path.join(DESCARGAS, posterOrigen);
+    const destino = path.join(ASSETS, 'premios.webp');
+    await sharp(origen)
+      .resize({ width: 760, withoutEnlargement: true })
+      .webp({ quality: 82 })
+      .toFile(destino);
+    console.log('  premios : ' + kb(origen) + ' KB -> ' + kb(destino) + ' KB  (760 px de ancho, webp)');
+  } else {
+    console.log('  premios : (no se encontro el original, se conserva el que ya exista)');
+  }
+
+  // ----------------------------------------------------------
   // Logo CLICK
   // ----------------------------------------------------------
   // El original viene a 6402 px. En el encabezado se ve a ~180 px.
