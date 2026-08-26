@@ -6,7 +6,12 @@
 // Props:
 //   resultado - { numeroRegistro, esGanador, premio, nombreCompleto,
 //                 nivel, puntaje }
-//   onNoSoyYo - limpia el registro guardado en este dispositivo
+//
+// No hay forma de borrar el registro desde aqui. Para registrar a
+// otra persona en el mismo dispositivo esta el boton Reiniciar del
+// encabezado, que reinicia el recorrido sin tirar lo guardado: el
+// numero de rifa es lo que se presenta en el stand para reclamar un
+// premio, y no debe poder perderse con un toque.
 //
 // El numero de registro se muestra grande y en mono: es el numero
 // de rifa, la persona lo va a leer en voz alta en el stand para
@@ -38,7 +43,7 @@ const TEXTO_NIVEL = {
   sharks: 'text-zona-sharks',
 };
 
-function PantallaResultado({ resultado, onNoSoyYo }) {
+function PantallaResultado({ resultado }) {
   const { numeroRegistro, esGanador, premio, nombreCompleto } = resultado;
 
   // Un registro guardado por una version anterior no trae nivel:
@@ -166,16 +171,6 @@ function PantallaResultado({ resultado, onNoSoyYo }) {
           : 'Te esperamos el viernes 28 de agosto en el stand 25, al terminar la última ponencia, para la entrega de regalos.'}
       </p>
 
-      {onNoSoyYo && (
-        <button
-          type="button"
-          onClick={onNoSoyYo}
-          className="mt-auto pt-4 text-[12px] text-bruma2 underline underline-offset-2
-                     transition-colors hover:text-bruma"
-        >
-          No soy yo, registrar a otra persona
-        </button>
-      )}
     </div>
   );
 }

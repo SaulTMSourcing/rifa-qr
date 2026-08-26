@@ -250,15 +250,6 @@ function App() {
     setVista('bienvenida');
   };
 
-  const noSoyYo = () => {
-    const ok = window.confirm(
-      '¿Seguro que quieres borrar este registro y empezar de nuevo? No se puede deshacer en este dispositivo.'
-    );
-    if (!ok) return;
-    localStorage.removeItem(LS_CLAVE);
-    reiniciar();
-  };
-
   // ----------------------------------------------------------
   // Que pantalla toca
   // ----------------------------------------------------------
@@ -311,7 +302,7 @@ function App() {
       break;
 
     case 'resultado':
-      contenido = <PantallaResultado resultado={resultado} onNoSoyYo={noSoyYo} />;
+      contenido = <PantallaResultado resultado={resultado} />;
       break;
 
     case 'error':
