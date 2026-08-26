@@ -31,6 +31,7 @@ import PantallaCargando from './components/PantallaCargando';
 import PantallaDiagnostico from './components/PantallaDiagnostico';
 import FormularioCaptura from './components/FormularioCaptura';
 import PantallaResultado from './components/PantallaResultado';
+import PantallaCerrado from './components/PantallaCerrado';
 import PantallaError from './components/PantallaError';
 
 // ------------------------------------------------------------
@@ -90,6 +91,7 @@ function App() {
   const [datosFormulario, setDatosFormulario] = useState(null);
   const [errorInfo, setErrorInfo] = useState(null);
   const [backendCaido, setBackendCaido] = useState(false);
+  const [registroCerrado, setRegistroCerrado] = useState(false);
 
   // ----------------------------------------------------------
   // Sondeo del backend, sin bloquear la interfaz
@@ -114,10 +116,13 @@ function App() {
     let temporizador;
 
     const sondear = async () => {
-      const ok = await healthCheck();
+      const { vivo, registroAbierto } = await healthCheck();
       if (!montado) return;
-      setBackendCaido(!ok);
-      if (!ok) temporizador = setTimeout(sondear, MS_REINTENTO_SALUD);
+
+      setBackendCaido(!vivo);
+      setRegistroCerrado(!registroAbierto);
+
+      if (!vivo) temporizador = setTimeout(sondear, MS_REINTENTO_SALUD);
     };
 
     sondear();
@@ -220,6 +225,13 @@ function App() {
               mensaje:
                 'Ese correo ya participó en la rifa. Si fuiste tú, no necesitas registrarte otra vez.',
             });
+          } else if (error.tipo === 'registro_cerrado') {
+            // Cerro mientras llenaba el formulario. No es un error
+            // suyo, asi que se le muestra la pantalla de cierre en
+            // vez de un mensaje de fallo.
+            setRegistroCerrado(true);
+            setVista('cerrado');
+            return;
           } else if (error.tipo === 'rate_limit_exceeded') {
             setErrorInfo({
               tipo: 'rate_limit',
@@ -253,10 +265,19 @@ function App() {
   // ----------------------------------------------------------
   // Que pantalla toca
   // ----------------------------------------------------------
-  const pasoBarra = { q1: 1, q2: 2, q3: 3 }[vista] || 0;
+  const pasoBarra = registroCerrado ? 0 : ({ q1: 1, q2: 2, q3: 3 }[vista] || 0);
+
+  // ----------------------------------------------------------
+  // El cierre gana sobre cualquier otra pantalla, EXCEPTO sobre el
+  // resultado de quien ya se registro: esa persona alcanzo a entrar
+  // y su numero sigue siendo valido, asi que debe poder verlo aunque
+  // el registro ya haya cerrado.
+  // ----------------------------------------------------------
+  const vistaEfectiva =
+    registroCerrado && vista !== 'resultado' ? 'cerrado' : vista;
 
   let contenido;
-  switch (vista) {
+  switch (vistaEfectiva) {
     case 'bienvenida':
       contenido = <PantallaBienvenida onEmpezar={() => setVista('q1')} />;
       break;
@@ -305,6 +326,10 @@ function App() {
       contenido = <PantallaResultado resultado={resultado} />;
       break;
 
+    case 'cerrado':
+      contenido = <PantallaCerrado />;
+      break;
+
     case 'error':
       contenido = (
         <PantallaError
@@ -323,7 +348,7 @@ function App() {
   return (
     <Marco
       paso={pasoBarra}
-      onReiniciar={vista === 'bienvenida' ? undefined : reiniciar}
+      onReiniciar={vistaEfectiva === 'bienvenida' || vistaEfectiva === 'cerrado' ? undefined : reiniciar}
       posicionTiburon={posicionTiburon}
       tiburonActivo={puntaje > 0}
       nivel={mostrandoNivel && nivel ? nivel.clave : null}
@@ -345,7 +370,7 @@ function App() {
         cambio, lo que vuelve a disparar las animaciones de entrada.
         Sin esto solo se animarian en el primer montaje.
       */}
-      <div key={vista} className="h-full">
+      <div key={vistaEfectiva} className="h-full">
         {contenido}
       </div>
     </Marco>

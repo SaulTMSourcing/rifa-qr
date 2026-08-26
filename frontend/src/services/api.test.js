@@ -379,7 +379,7 @@ describe('registrarParticipante', () => {
 // healthCheck
 // ============================================================
 describe('healthCheck', () => {
-  it('devuelve true con 200 y { status: ok, database: up }', async () => {
+  it('reporta vivo con 200 y { status: ok, database: up }', async () => {
     fetch.mockResolvedValueOnce(
       respuestaJson({
         ok: true,
@@ -388,10 +388,10 @@ describe('healthCheck', () => {
       })
     );
 
-    await expect(healthCheck()).resolves.toBe(true);
+    await expect(healthCheck()).resolves.toEqual({ vivo: true, registroAbierto: true });
   });
 
-  it('devuelve false con 200 pero database down', async () => {
+  it('reporta caido con 200 pero database down', async () => {
     fetch.mockResolvedValueOnce(
       respuestaJson({
         ok: true,
@@ -400,35 +400,35 @@ describe('healthCheck', () => {
       })
     );
 
-    await expect(healthCheck()).resolves.toBe(false);
+    await expect(healthCheck()).resolves.toMatchObject({ vivo: false });
   });
 
-  it('devuelve false con body sin los campos esperados', async () => {
+  it('reporta caido con body sin los campos esperados', async () => {
     fetch.mockResolvedValueOnce(
       respuestaJson({ ok: true, status: 200, body: {} })
     );
 
-    await expect(healthCheck()).resolves.toBe(false);
+    await expect(healthCheck()).resolves.toMatchObject({ vivo: false });
   });
 
-  it('devuelve false si response.ok es false, sin intentar parsear el body', async () => {
+  it('reporta caido si response.ok es false, sin intentar parsear el body', async () => {
     // json() lanzaria si se llamara: probamos que el corto
     // circuito de !response.ok evita tocar el body
     fetch.mockResolvedValueOnce(respuestaNoJson({ ok: false, status: 503 }));
 
-    await expect(healthCheck()).resolves.toBe(false);
+    await expect(healthCheck()).resolves.toMatchObject({ vivo: false });
   });
 
-  it('devuelve false si fetch lanza, sin propagar la excepcion', async () => {
+  it('reporta caido si fetch lanza, sin propagar la excepcion', async () => {
     fetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
-    await expect(healthCheck()).resolves.toBe(false);
+    await expect(healthCheck()).resolves.toMatchObject({ vivo: false });
   });
 
-  it('devuelve false si el body no es JSON valido', async () => {
+  it('reporta caido si el body no es JSON valido', async () => {
     fetch.mockResolvedValueOnce(respuestaNoJson({ ok: true, status: 200 }));
 
-    await expect(healthCheck()).resolves.toBe(false);
+    await expect(healthCheck()).resolves.toMatchObject({ vivo: false });
   });
 
   it('llama a fetch con URL terminada en /api/health y sin opciones', async () => {
@@ -447,5 +447,72 @@ describe('healthCheck', () => {
     expect(url.endsWith('/api/health')).toBe(true);
     // GET implicito: healthCheck no pasa segundo argumento
     expect(opciones).toBeUndefined();
+  });
+
+  // ----------------------------------------------------------
+  // Ventana de registro
+  // ----------------------------------------------------------
+  // El sorteo se hace sobre la lista de registrados, asi que llega
+  // un momento en que la puerta se cierra. La app lo consulta aqui
+  // para no dejar que alguien llene un formulario inservible.
+  // ----------------------------------------------------------
+  describe('ventana de registro', () => {
+    it('reporta cerrado cuando el backend manda registroAbierto false', async () => {
+      fetch.mockResolvedValueOnce(
+        respuestaJson({
+          ok: true,
+          status: 200,
+          body: { status: 'ok', database: 'up', registroAbierto: false },
+        })
+      );
+
+      await expect(healthCheck()).resolves.toEqual({
+        vivo: true,
+        registroAbierto: false,
+      });
+    });
+
+    it('reporta abierto cuando el backend manda registroAbierto true', async () => {
+      fetch.mockResolvedValueOnce(
+        respuestaJson({
+          ok: true,
+          status: 200,
+          body: { status: 'ok', database: 'up', registroAbierto: true },
+        })
+      );
+
+      await expect(healthCheck()).resolves.toEqual({
+        vivo: true,
+        registroAbierto: true,
+      });
+    });
+
+    it('asume ABIERTO si el backend no manda el campo', async () => {
+      // Un backend de una version anterior no lo incluye: cerrar
+      // por omision dejaria a todos fuera sin que nadie lo pidiera.
+      fetch.mockResolvedValueOnce(
+        respuestaJson({
+          ok: true,
+          status: 200,
+          body: { status: 'ok', database: 'up' },
+        })
+      );
+
+      await expect(healthCheck()).resolves.toEqual({
+        vivo: true,
+        registroAbierto: true,
+      });
+    });
+
+    it('asume ABIERTO si no se puede contactar al servidor', async () => {
+      // Un parpadeo de la red del evento no debe cerrar la puerta:
+      // es preferible dejar intentar y fallar al enviar.
+      fetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+      await expect(healthCheck()).resolves.toEqual({
+        vivo: false,
+        registroAbierto: true,
+      });
+    });
   });
 });

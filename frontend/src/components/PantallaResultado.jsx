@@ -1,31 +1,28 @@
 // ============================================================
 // frontend/src/components/PantallaResultado.jsx
 // ------------------------------------------------------------
-// Cierre del flujo: confirma el registro y revela si gano.
+// Cierre del flujo: confirma el registro y entrega el numero.
 //
 // Props:
-//   resultado - { numeroRegistro, esGanador, premio, nombreCompleto,
-//                 nivel, puntaje }
+//   resultado - { numeroRegistro, nombreCompleto, nivel, puntaje }
+//
+// AQUI NO SE DICE SI GANO.
+//
+// El sorteo se hace el viernes, despues de cerrar los registros y
+// sobre la lista real de participantes. En el momento del registro
+// todavia no hay ganadores que anunciar: lo unico cierto es el
+// numero que le toco.
+//
+// Ese numero se muestra grande y en mono porque es lo unico que
+// conecta a la persona con un posible premio, y lo va a leer en voz
+// alta en un stand con ruido: tiene que distinguirse sin
+// ambiguedad entre digitos.
 //
 // No hay forma de borrar el registro desde aqui. Para registrar a
 // otra persona en el mismo dispositivo esta el boton Reiniciar del
-// encabezado, que reinicia el recorrido sin tirar lo guardado: el
-// numero de rifa es lo que se presenta en el stand para reclamar un
-// premio, y no debe poder perderse con un toque.
-//
-// El numero de registro se muestra grande y en mono: es el numero
-// de rifa, la persona lo va a leer en voz alta en el stand para
-// reclamar su premio, asi que tiene que leerse de un vistazo y sin
-// ambiguedad entre digitos.
-//
-// El diagnostico tambien aparece aqui. Como el envio por correo
-// quedo fuera de alcance, esta pantalla es lo unico que le queda a
-// la persona de su resultado del Tiburometro, y sobrevive al
-// recargar porque viene de localStorage.
+// encabezado, que reinicia el recorrido sin tirar lo guardado.
 // ============================================================
 
-import { useEffect, useRef } from 'react';
-import confetti from 'canvas-confetti';
 import { nivelPorClave } from '../tiburometro';
 
 // Tailwind necesita las clases escritas completas: no puede
@@ -44,57 +41,27 @@ const TEXTO_NIVEL = {
 };
 
 function PantallaResultado({ resultado }) {
-  const { numeroRegistro, esGanador, premio, nombreCompleto } = resultado;
+  const { numeroRegistro, nombreCompleto } = resultado;
 
   // Un registro guardado por una version anterior no trae nivel:
   // en ese caso simplemente no se pinta el bloque.
   const diagnostico = resultado.nivel ? nivelPorClave(resultado.nivel) : null;
 
-  const yaLanzado = useRef(false);
-
-  // ----------------------------------------------------------
-  // Confeti solo para ganadores, y una sola vez.
-  // ----------------------------------------------------------
-  // El ref evita que se repita si React vuelve a montar el efecto
-  // (en desarrollo, StrictMode monta dos veces a proposito).
-  //
-  // Se respeta prefers-reduced-motion: hay gente a la que el
-  // movimiento brusco le provoca mareo, y esto dispara particulas
-  // por toda la pantalla.
-  // ----------------------------------------------------------
-  useEffect(() => {
-    if (!esGanador || yaLanzado.current) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-    yaLanzado.current = true;
-    const colores = ['#f56f04', '#ff8c34', '#f5f3ee'];
-
-    confetti({ particleCount: 70, spread: 65, origin: { y: 0.35 }, colors: colores });
-    const t = setTimeout(
-      () => confetti({ particleCount: 45, spread: 90, origin: { y: 0.4 }, colors: colores }),
-      260
-    );
-    return () => clearTimeout(t);
-  }, [esGanador]);
-
   return (
     <div className="flex h-full flex-col items-center pt-6 text-center">
-      {/* Marca de estado */}
       <div
-        className={[
-          'animate-entrar flex h-14 w-14 items-center justify-center rounded-full text-2xl',
-          esGanador ? 'bg-click-orange text-abismo-900 animate-pulso' : 'bg-zona-safe text-abismo-900',
-        ].join(' ')}
+        className="animate-entrar flex h-14 w-14 items-center justify-center rounded-full
+                   bg-zona-safe text-2xl text-abismo-900"
         aria-hidden="true"
       >
-        {esGanador ? '★' : '✓'}
+        ✓
       </div>
 
       <h1
         className="animate-entrar mt-5 font-display text-[25px] font-bold leading-[1.15]"
         style={{ animationDelay: '90ms' }}
       >
-        {esGanador ? '¡Ganaste un premio!' : '¡Listo, ya estás participando!'}
+        ¡Listo, ya estás participando!
       </h1>
 
       {/* Numero de rifa */}
@@ -105,7 +72,7 @@ function PantallaResultado({ resultado }) {
         <p className="font-mono text-[10.5px] uppercase tracking-[.12em] text-bruma">
           Tu número de registro
         </p>
-        <p className="mt-1.5 font-mono text-[44px] font-semibold leading-none text-click-orange">
+        <p className="mt-1.5 font-mono text-[46px] font-semibold leading-none text-click-orange">
           {numeroRegistro}
         </p>
         {nombreCompleto && (
@@ -113,27 +80,33 @@ function PantallaResultado({ resultado }) {
         )}
       </div>
 
-      {/* Premio */}
-      {esGanador && premio && (
-        <div
-          className="animate-entrar mt-3.5 w-full rounded-2xl border border-click-orange/40 bg-click-orange/10 px-4 py-4"
-          style={{ animationDelay: '250ms' }}
-        >
-          <p className="font-mono text-[10.5px] uppercase tracking-[.12em] text-click-orange">
-            Tu premio
-          </p>
-          <p className="mt-1.5 font-display text-[19px] font-bold leading-snug text-espuma">
-            {premio}
-          </p>
-        </div>
-      )}
+      {/*
+        Recordatorio de la captura.
+        ---------------------------------------------------------
+        No es un adorno: como los ganadores se anuncian hasta el
+        viernes, este numero es lo unico que conecta a la persona
+        con su premio, y para entonces la pestana puede estar
+        cerrada o el telefono en otras manos. Va en acento y con
+        borde para que se lea antes que el texto de abajo.
+      */}
+      <div
+        className="animate-entrar mt-3 flex w-full items-start gap-2.5 rounded-xl
+                   border border-click-orange/40 bg-click-orange/10 px-3.5 py-3 text-left"
+        style={{ animationDelay: '240ms' }}
+      >
+        <span className="mt-px shrink-0 text-[15px]" aria-hidden="true">📸</span>
+        <p className="text-[12.5px] leading-[1.45] text-espuma">
+          <strong className="font-semibold">Toma una captura de pantalla.</strong>{' '}
+          Vas a necesitar este número el viernes para reclamar tu premio.
+        </p>
+      </div>
 
       {/* Diagnóstico del Tiburómetro */}
       {diagnostico && (
         <div
-          className="animate-entrar mt-3.5 w-full rounded-2xl border border-abismo-500
+          className="animate-entrar mt-3 w-full rounded-2xl border border-abismo-500
                      bg-abismo-600 px-4 py-3.5 text-left"
-          style={{ animationDelay: '300ms' }}
+          style={{ animationDelay: '310ms' }}
         >
           <p className="font-mono text-[10.5px] uppercase tracking-[.12em] text-bruma">
             Tu diagnóstico
@@ -163,14 +136,12 @@ function PantallaResultado({ resultado }) {
       )}
 
       <p
-        className="animate-entrar mt-4 text-[13px] leading-[1.55] text-bruma"
+        className="animate-entrar mt-4 pb-2 text-[13px] leading-[1.55] text-bruma"
         style={{ animationDelay: '380ms' }}
       >
-        {esGanador
-          ? 'Pasa al stand 25 el viernes 28 de agosto, al terminar la última ponencia, para recoger tu premio. Muestra este número.'
-          : 'Te esperamos el viernes 28 de agosto en el stand 25, al terminar la última ponencia, para la entrega de regalos.'}
+        Los ganadores se anuncian el <strong className="text-espuma">viernes 28 de agosto
+        en el stand 25</strong>, al terminar la última ponencia.
       </p>
-
     </div>
   );
 }

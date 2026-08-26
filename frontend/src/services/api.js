@@ -136,13 +136,34 @@ export async function registrarParticipante(datos) {
 // Si el backend esta caido, podemos avisar al usuario antes
 // de que llene todo el formulario y se frustre.
 // ============================================================
+// ============================================================
+// healthCheck()
+// ------------------------------------------------------------
+// Devuelve { vivo, registroAbierto }.
+//
+//   vivo            - servidor y base responden
+//   registroAbierto - la ventana de registro sigue abierta
+//
+// Se consulta al abrir la app para dos cosas distintas: avisar si
+// el backend no responde, y mostrar la pantalla de cierre antes de
+// que alguien llene un formulario que ya no se puede enviar.
+//
+// Si no se puede contactar al servidor se asume ABIERTO: es
+// preferible dejar intentar y fallar al enviar, que bloquear a
+// alguien por un parpadeo de la red del evento.
+// ============================================================
 export async function healthCheck() {
   try {
     const response = await fetch(`${API_URL}/api/health`);
-    if (!response.ok) return false;
+    if (!response.ok) return { vivo: false, registroAbierto: true };
+
     const body = await response.json();
-    return body.status === 'ok' && body.database === 'up';
+    return {
+      vivo: body.status === 'ok' && body.database === 'up',
+      // Un backend anterior no manda el campo: se asume abierto.
+      registroAbierto: body.registroAbierto !== false,
+    };
   } catch {
-    return false;
+    return { vivo: false, registroAbierto: true };
   }
 }

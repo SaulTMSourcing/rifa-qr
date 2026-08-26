@@ -195,11 +195,25 @@ async function main() {
   // --- 3. Limpiar para dejar un estado conocido ---
   // El orden importa: primero se sueltan las referencias de
   // numeros_ganadores, luego se borran los participantes.
+  //
+  // numeros_ganadores se BORRA entera, no solo se le limpian las
+  // banderas. Antes solo se hacia el UPDATE, y bastaba con ensayar
+  // un sorteo (que inserta premios en numeros distintos) para que el
+  // sandbox quedara con los premios del ensayo mezclados con los de
+  // schema.sql. Dejaba de ser un estado conocido y las
+  // comprobaciones empezaban a fallar sin motivo aparente.
   await conn.query(
     'UPDATE numeros_ganadores SET reclamado = FALSE, participante_id = NULL, fecha_reclamo = NULL'
   );
   await conn.query('DELETE FROM participantes');
+  await conn.query('DELETE FROM numeros_ganadores');
   await conn.query('ALTER TABLE participantes AUTO_INCREMENT = 1');
+
+  // Con la tabla ya vacia se recarga schema.sql, cuya semilla vuelve
+  // a poner exactamente los premios previstos. Se usa el archivo en
+  // vez de repetir la lista aqui, para que no haya dos fuentes de
+  // verdad que puedan desincronizarse.
+  await conn.query(schema);
 
   // --- 4. Sembrar participantes, saltando los IDs quemados ---
   const filas = [];

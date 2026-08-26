@@ -78,6 +78,37 @@ export const configRateLimit = {
   ventanaMinutos: Math.round(VENTANA_MS / 60000),
 };
 
+// ------------------------------------------------------------
+// Ventana de registro
+// ------------------------------------------------------------
+// El sorteo se hace DESPUES de cerrar los registros, sobre la lista
+// real de participantes. Por eso hace falta poder cerrar la puerta
+// en un momento concreto: un registro que entre despues del sorteo
+// no podria ganar nada y tampoco estaria en la lista de la que se
+// sacaron los ganadores.
+//
+// Se cierra poniendo REGISTRO_ABIERTO=false en el panel y
+// reiniciando la app. Se eligio un interruptor manual y no una
+// fecha limite porque la hora de cierre es aproximada ("entre 2 y
+// 4"), y conviene decidirla en el momento y no de antemano.
+//
+// Por defecto ABIERTO: si la variable no existe, la app funciona.
+// Cerrar tiene que ser un acto deliberado.
+// ------------------------------------------------------------
+export const registroAbierto = () =>
+  String(process.env.REGISTRO_ABIERTO ?? 'true').toLowerCase() !== 'false';
+
+function exigirRegistroAbierto(req, res, next) {
+  if (registroAbierto()) return next();
+
+  return res.status(403).json({
+    ok: false,
+    error: 'registro_cerrado',
+    mensaje:
+      'El registro ya cerró. Los ganadores se anuncian en el stand 25.',
+  });
+}
+
 const registroLimiter = habilitado
   ? rateLimit({
       windowMs: VENTANA_MS,
@@ -96,6 +127,8 @@ const registroLimiter = habilitado
 // ------------------------------------------------------------
 // POST /api/registrar
 // ------------------------------------------------------------
-router.post('/registrar', registroLimiter, registrarParticipante);
+// El cierre se comprueba ANTES del rate limit: un intento cuando ya
+// cerro no debe gastar cupo de nadie.
+router.post('/registrar', exigirRegistroAbierto, registroLimiter, registrarParticipante);
 
 export default router;

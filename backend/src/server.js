@@ -13,7 +13,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import pool, { testConnection } from './config/db.js';
-import registroRoutes, { configRateLimit } from './routes/registro.routes.js';
+import registroRoutes, { configRateLimit, registroAbierto } from './routes/registro.routes.js';
 
 dotenv.config();
 
@@ -57,6 +57,10 @@ app.get('/api/health', async (req, res) => {
       status: 'ok',
       server: 'up',
       database: rows[0].ok === 1 ? 'up' : 'down',
+      // El frontend lo consulta al abrir para mostrar la pantalla de
+      // cierre sin que nadie llene un formulario que ya no se puede
+      // enviar. La comprobacion autoritativa sigue en el endpoint.
+      registroAbierto: registroAbierto(),
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
@@ -113,6 +117,15 @@ async function start() {
     } else {
       console.log('[Server] Rate limit: DESACTIVADO (RATE_LIMIT_MAX=0)');
     }
+
+    // Se imprime bien visible: si arranca cerrado por error, nadie
+    // puede registrarse y no hay forma de notarlo hasta que alguien
+    // se queja en el stand.
+    console.log(
+      registroAbierto()
+        ? '[Server] Registro: ABIERTO'
+        : '[Server] Registro: CERRADO (REGISTRO_ABIERTO=false)'
+    );
   });
 }
 
