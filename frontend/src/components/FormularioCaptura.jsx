@@ -107,10 +107,15 @@ function FormularioCaptura({ onEnviar, valoresIniciales }) {
         Recibe tu diagnóstico y ¡gana un premio!
       </h1>
 
+      {/*
+        No se promete ningun correo: el envio quedo fuera de alcance y los
+        registros se usaran en una campana posterior. Prometer algo que no
+        va a llegar es peor que no prometerlo.
+      */}
       <p className="mt-2.5 text-[13.5px] leading-[1.5] text-bruma">
-        Déjanos tus datos para enviarte tu diagnóstico y participar por uno de
-        los regalos que se entregan el viernes 28 de agosto en el stand 25, al
-        terminar la última ponencia.
+        Déjanos tus datos para participar por uno de los regalos que se
+        entregan el viernes 28 de agosto en el stand 25, al terminar la
+        última ponencia.
       </p>
 
       <div className="mt-5 flex flex-col gap-3.5">

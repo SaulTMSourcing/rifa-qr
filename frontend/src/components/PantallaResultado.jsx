@@ -102,7 +102,7 @@ function PantallaResultado({ resultado, onNoSoyYo }) {
       >
         {esGanador
           ? 'Pasa al stand 25 el viernes 28 de agosto, al terminar la última ponencia, para recoger tu premio. Muestra este número.'
-          : 'Te enviaremos tu diagnóstico por correo. Te esperamos el viernes 28 de agosto en el stand 25, al terminar la última ponencia, para la entrega de regalos.'}
+          : 'Te esperamos el viernes 28 de agosto en el stand 25, al terminar la última ponencia, para la entrega de regalos.'}
       </p>
 
       {onNoSoyYo && (
