@@ -4,20 +4,47 @@
 // Cierre del flujo: confirma el registro y revela si gano.
 //
 // Props:
-//   resultado - { numeroRegistro, esGanador, premio, nombreCompleto }
+//   resultado - { numeroRegistro, esGanador, premio, nombreCompleto,
+//                 nivel, puntaje }
 //   onNoSoyYo - limpia el registro guardado en este dispositivo
 //
 // El numero de registro se muestra grande y en mono: es el numero
 // de rifa, la persona lo va a leer en voz alta en el stand para
 // reclamar su premio, asi que tiene que leerse de un vistazo y sin
 // ambiguedad entre digitos.
+//
+// El diagnostico tambien aparece aqui. Como el envio por correo
+// quedo fuera de alcance, esta pantalla es lo unico que le queda a
+// la persona de su resultado del Tiburometro, y sobrevive al
+// recargar porque viene de localStorage.
 // ============================================================
 
 import { useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
+import { nivelPorClave } from '../tiburometro';
+
+// Tailwind necesita las clases escritas completas: no puede
+// analizar nombres armados concatenando cadenas.
+const PUNTO_NIVEL = {
+  safe: 'bg-zona-safe',
+  turbias: 'bg-zona-turbias',
+  abiertas: 'bg-zona-abiertas',
+  sharks: 'bg-zona-sharks',
+};
+const TEXTO_NIVEL = {
+  safe: 'text-zona-safe',
+  turbias: 'text-zona-turbias',
+  abiertas: 'text-zona-abiertas',
+  sharks: 'text-zona-sharks',
+};
 
 function PantallaResultado({ resultado, onNoSoyYo }) {
   const { numeroRegistro, esGanador, premio, nombreCompleto } = resultado;
+
+  // Un registro guardado por una version anterior no trae nivel:
+  // en ese caso simplemente no se pinta el bloque.
+  const diagnostico = resultado.nivel ? nivelPorClave(resultado.nivel) : null;
+
   const yaLanzado = useRef(false);
 
   // ----------------------------------------------------------
@@ -96,9 +123,43 @@ function PantallaResultado({ resultado, onNoSoyYo }) {
         </div>
       )}
 
+      {/* Diagnóstico del Tiburómetro */}
+      {diagnostico && (
+        <div
+          className="animate-entrar mt-3.5 w-full rounded-2xl border border-abismo-500
+                     bg-abismo-600 px-4 py-3.5 text-left"
+          style={{ animationDelay: '300ms' }}
+        >
+          <p className="font-mono text-[10.5px] uppercase tracking-[.12em] text-bruma">
+            Tu diagnóstico
+          </p>
+
+          <div className="mt-2 flex items-center gap-2.5">
+            <span
+              className={`h-2.5 w-2.5 shrink-0 rounded-full ${PUNTO_NIVEL[diagnostico.clave]}`}
+              aria-hidden="true"
+            />
+            <span
+              className={`font-display text-[17px] font-bold leading-tight ${TEXTO_NIVEL[diagnostico.clave]}`}
+            >
+              {diagnostico.nombre}
+            </span>
+            {typeof resultado.puntaje === 'number' && (
+              <span className="ml-auto shrink-0 font-mono text-[12px] text-bruma2">
+                {resultado.puntaje} pts
+              </span>
+            )}
+          </div>
+
+          <p className="mt-2 text-[12.5px] leading-[1.5] text-bruma">
+            {diagnostico.mensaje}
+          </p>
+        </div>
+      )}
+
       <p
         className="animate-entrar mt-4 text-[13px] leading-[1.55] text-bruma"
-        style={{ animationDelay: '330ms' }}
+        style={{ animationDelay: '380ms' }}
       >
         {esGanador
           ? 'Pasa al stand 25 el viernes 28 de agosto, al terminar la última ponencia, para recoger tu premio. Muestra este número.'

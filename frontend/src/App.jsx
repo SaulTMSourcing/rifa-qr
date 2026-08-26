@@ -15,7 +15,7 @@
 // continuo, y remontarlo lo reiniciaria en cada transicion.
 // ============================================================
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   registrarParticipante,
   healthCheck,
@@ -168,8 +168,13 @@ function App() {
   // ----------------------------------------------------------
   // Envio al backend
   // ----------------------------------------------------------
-  const enviar = useCallback(
-    async (datos) => {
+  // Funcion normal, sin useCallback: el proyecto tiene activado el
+  // React Compiler, que memoriza por su cuenta. Envolverla a mano
+  // no aportaba nada (no se pasa a ningun hijo memorizado) y ademas
+  // chocaba con el analisis del compilador, que deducia dependencias
+  // distintas a las declaradas.
+  // ----------------------------------------------------------
+  const enviar = async (datos) => {
       setDatosFormulario(datos);
       setErrorInfo(null);
       setVista('enviando');
@@ -187,6 +192,12 @@ function App() {
           // El del backend, no el del formulario: viene normalizado
           // y es identico al que quedo guardado en la base.
           nombreCompleto: respuesta.nombreCompleto,
+          // El diagnostico se guarda para que la pantalla final lo
+          // conserve al recargar. Como el envio por correo quedo
+          // fuera de alcance, esto es lo unico que le queda a la
+          // persona de su resultado.
+          nivel: nivel?.clave ?? null,
+          puntaje,
           fechaRegistro: new Date().toISOString(),
         };
 
@@ -228,9 +239,7 @@ function App() {
         }
         setVista('error');
       }
-    },
-    [respuestas]
-  );
+  };
 
   // ----------------------------------------------------------
   const reiniciar = () => {

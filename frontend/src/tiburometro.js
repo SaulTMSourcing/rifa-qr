@@ -108,6 +108,21 @@ export function nivelPorPuntaje(puntaje) {
 }
 
 // ------------------------------------------------------------
+// nivelPorClave(): recupera un nivel a partir de su clave.
+//
+// Lo usa la pantalla final, que lee el diagnostico guardado en
+// localStorage. Ahi solo se guarda la clave, no el objeto entero:
+// asi, si algun texto cambia, los registros ya guardados muestran
+// la version nueva en vez de una copia vieja congelada.
+//
+// Devuelve null si la clave no existe, para que un registro
+// guardado por una version anterior no rompa la pantalla.
+// ------------------------------------------------------------
+export function nivelPorClave(clave) {
+  return NIVELES.find((n) => n.clave === clave) || null;
+}
+
+// ------------------------------------------------------------
 // posicionParcial(): donde va el tiburon mientras se contesta.
 //
 // Se normaliza sobre las preguntas YA respondidas, no sobre las
