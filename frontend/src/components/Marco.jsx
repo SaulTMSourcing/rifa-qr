@@ -20,7 +20,6 @@ function Marco({
   children,
   paso = 0,          // 0 = sin barra; 1..3 = pregunta en curso
   onReiniciar,
-  onVerPremios,
   posicionTiburon,
   tiburonActivo,
   nivel,
@@ -41,40 +40,17 @@ function Marco({
             draggable="false"
           />
 
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            {/*
-              Los premios se pueden consultar en cualquier momento
-              del recorrido: es el motivo por el que alguien decide
-              contestar, y esconderlo hasta el final desperdicia ese
-              gancho. Va en acento porque es la accion opcional que
-              si queremos que se toque.
-            */}
-            {onVerPremios && (
-              <button
-                type="button"
-                onClick={onVerPremios}
-                className="flex items-center gap-1.5 rounded-full border border-click-orange/50
-                           bg-click-orange/10 px-3 py-1.5 font-mono text-[10px] uppercase
-                           tracking-[.05em] text-click-orange transition-colors
-                           hover:bg-click-orange/20"
-              >
-                <span aria-hidden="true">🎁</span>
-                Premios
-              </button>
-            )}
-
-            {onReiniciar && (
-              <button
-                type="button"
-                onClick={onReiniciar}
-                className="rounded-full border border-abismo-500 px-2.5 py-1.5
-                           font-mono text-[10px] uppercase tracking-[.05em] text-bruma
-                           transition-colors hover:border-bruma hover:text-espuma"
-              >
-                Reiniciar
-              </button>
-            )}
-          </div>
+          {onReiniciar && (
+            <button
+              type="button"
+              onClick={onReiniciar}
+              className="ml-auto shrink-0 rounded-full border border-abismo-500 px-2.5 py-1.5
+                         font-mono text-[10px] uppercase tracking-[.05em] text-bruma
+                         transition-colors hover:border-bruma hover:text-espuma"
+            >
+              Reiniciar
+            </button>
+          )}
         </header>
 
         {/* ─── Avance del cuestionario ─── */}

@@ -33,7 +33,10 @@ import FormularioCaptura from './components/FormularioCaptura';
 import PantallaResultado from './components/PantallaResultado';
 import PantallaCerrado from './components/PantallaCerrado';
 import PantallaError from './components/PantallaError';
-import VentanaPremios from './components/VentanaPremios';
+// components/VentanaPremios.jsx se conserva sin usar: el boton de
+// premios se retiro del encabezado el dia del evento. Al no
+// importarse, ni el componente ni el poster de 124 KB entran al
+// build.
 
 // ------------------------------------------------------------
 // Clave de localStorage, versionada.
@@ -93,7 +96,6 @@ function App() {
   const [errorInfo, setErrorInfo] = useState(null);
   const [backendCaido, setBackendCaido] = useState(false);
   const [registroCerrado, setRegistroCerrado] = useState(false);
-  const [premiosAbiertos, setPremiosAbiertos] = useState(false);
 
   // ----------------------------------------------------------
   // Sondeo del backend, sin bloquear la interfaz
@@ -366,7 +368,6 @@ function App() {
           ? undefined
           : reiniciar
       }
-      onVerPremios={() => setPremiosAbiertos(true)}
       posicionTiburon={posicionTiburon}
       tiburonActivo={puntaje > 0}
       nivel={mostrandoNivel && nivel ? nivel.clave : null}
@@ -391,16 +392,6 @@ function App() {
       <div key={vistaEfectiva} className="h-full">
         {contenido}
       </div>
-
-      {/*
-        La ventana de premios vive dentro del Marco pero se posiciona
-        fija sobre toda la pantalla, asi que se ve completa aunque el
-        kiosco sea mas chico que el viewport.
-      */}
-      <VentanaPremios
-        abierta={premiosAbiertos}
-        onCerrar={() => setPremiosAbiertos(false)}
-      />
     </Marco>
   );
 }
