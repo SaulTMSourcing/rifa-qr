@@ -102,7 +102,7 @@ function VentanaPremios({ abierta, onCerrar }) {
                            border-abismo-600 px-5 py-3.5">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[.14em] text-click-orange">
-              23 premios en juego
+              Sorteo del Tiburómetro
             </p>
             <h2 className="mt-0.5 font-display text-[17px] font-bold leading-tight">
               Lo que puedes ganar
@@ -125,9 +125,10 @@ function VentanaPremios({ abierta, onCerrar }) {
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <img
             src={posterPremios}
-            alt="Premios del Tiburómetro: 3 becas del 100% y 6 del 50% en diplomados de la
-                 Universidad Anáhuac, 8 bonos de 100% de descuento en Fideicomiso Sin Escalas
-                 y 6 bonos de 50% en Fideicomiso de Garantía."
+            alt="Premios del Tiburómetro: beca del 100% en el Diplomado Gestión de SOFOMES,
+                 beca del 50% en el Diplomado de Administración y Manejo de Fideicomisos, ambas
+                 en alianza con la Universidad Anáhuac, y un bono del 100% de descuento sobre
+                 honorarios de aceptación en Fideicomiso Sin Escalas."
             className="w-full select-none"
             draggable="false"
           />

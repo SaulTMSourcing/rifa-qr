@@ -92,15 +92,19 @@ async function main() {
   // alto: recortarla partiria el poster a la mitad. Solo se acota el
   // ancho y el alto sale proporcional.
   //
-  // Se busca por prefijo porque el nombre del archivo trae la fecha
-  // y cambia cada vez que diseño lo actualiza.
+  // Se busca por patron y se toma el archivo MAS RECIENTE, porque el
+  // nombre cambia cada vez que diseño entrega una version nueva
+  // ("Click - Mailing - Premios", "ASOFOM - Click Infografia final"...).
+  // Ordenar por fecha de modificacion evita tener que tocar este
+  // script en cada entrega.
   // ----------------------------------------------------------
   const DESCARGAS = 'C:/Users/TMSOURCING70/Downloads';
   const posterOrigen = fs.existsSync(DESCARGAS)
     ? fs.readdirSync(DESCARGAS)
-        .filter((f) => /^Click - Mailing - Premios.*\.png$/i.test(f))
-        .sort()
-        .pop()
+        .filter((f) => /\.png$/i.test(f) && /(infograf|premios)/i.test(f))
+        .map((f) => ({ f, t: fs.statSync(path.join(DESCARGAS, f)).mtimeMs }))
+        .sort((a, b) => b.t - a.t)
+        .map((x) => x.f)[0]
     : null;
 
   if (posterOrigen) {
